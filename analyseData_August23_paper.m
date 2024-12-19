@@ -10,7 +10,7 @@ clear
 
 dataPth = "MeasurementData/measurements_Aug2023/";
 hdrNames = ["time", "TEC1", "TEC2", "BoxTop", "TabAnode", "SurfaceBottomAnode", "SurfaceTopAnode", "SurfaceBottomCathode", "SurfaceTopCathode", "TabCathode", "SurfaceTopCenter", "SurfaceBottomCenter", "CoolingBlockTop", "Ambient", "U"];
-freqTextFilesInfo = dir([dataPth+"*Frequency.txt"]);
+freqTextFilesInfo = dir(dataPth+"*Frequency.txt");
 z = [0:5:100]; % SoC break points
 
 for zz = 1:numel(z)
@@ -31,7 +31,7 @@ end
 %% Potentiometric based method
 
 dataPth = "MeasurementData/measurements_Aug2023/";
-potTextFilesInfo = dir([dataPth+"*Potentiometric.txt"]);
+potTextFilesInfo = dir(dataPth+"*Potentiometric.txt");
 hdrNames = ["time", "TEC1", "TEC2", "BoxTop", "TabAnode", "SurfaceBottomAnode", "SurfaceTopAnode", "SurfaceBottomCathode", "SurfaceTopCathode", "TabCathode", "SurfaceTopCenter", "SurfaceBottomCenter", "CoolingBlockTop", "Ambient", "U"];
 z = [0:5:100]; % SoC break points
 

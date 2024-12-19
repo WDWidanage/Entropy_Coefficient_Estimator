@@ -440,12 +440,22 @@ classdef EntropyCoeffEstimator < handle
             db = @(x)20*log10(abs(x));
             phG = @(G) unwrap(angle(G))*180/pi;     % Function for transfer function phase
 
+            kernel_phase = phG(obj.results.kernel);
+            TF_phase = phG(modelResp);
+
+            if any(kernel_phase < 0)
+                kernel_phase = kernel_phase + 360;
+            end
+            if any(TF_phase < 0)
+                TF_phase = TF_phase + 360;
+            end
+            
             titleStr = sprintf("Model Order: num %d denom %d.  Model fit: %.1f%%",obj.estimationSettings.modelOrder_num,obj.estimationSettings.modelOrder_denom,obj.results.fitMetrics.FitPercent);
             ax(1) = subplot(2,1,1);
             semilogx(freqExc,db(obj.results.kernel),'. -',freqExc,db(modelResp), '-')
             xlabel('Excited frequencies [mHz]'); ylabel('Magnitude [dB]'); legend('Kernel','TF fit'); title(titleStr)
             ax(2) = subplot(2,1,2);
-            semilogx(freqExc,phG(obj.results.kernel),'. -',freqExc,phG(modelResp),'-')
+            semilogx(freqExc,kernel_phase,'. -',freqExc,TF_phase,'-')
             xlabel('Excited frequencies [mHz]'); ylabel('Phase [deg]')
             linkaxes(ax,'x')
 
