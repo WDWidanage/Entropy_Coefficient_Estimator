@@ -28,20 +28,20 @@ classdef EntropyCoeffEstimator < handle
         function obj = EntropyCoeffEstimator(nvp)
 
             arguments
-                % Signal desgin related properties
+                % Signal design related properties
                 nvp.Tmin_degC(1,1) double {mustBeNumeric} = 10;         % Specify minimum temperature [degC]
                 nvp.Tmax_degC(1,1) double {mustBeNumeric} = 50;         % Specify maximum temperature [degC]
                 nvp.Tp_H(1,1) double {mustBePositive} = 4;              % Specify signal period [H]
                 nvp.timeStep_mins(1,1) double {mustBePositive} = 5;     % Each temperature step will at least be held for timeStep minutes before switching [mins]
                 nvp.Ts_s(1,1) double {mustBeNumeric} = 1;               % Sampling rate of data acquisiton [s]
                 nvp.Hsupp double = 2;                                   % Suppressed harmonics
-                nvp.numLevels = 5;                                      % Sepcify the number of temperature levels
+                nvp.numLevels = 5;                                      % Specify the number of temperature levels
                 nvp.startTemp = 20;                                     % Specify the starting temperature [degC]
                 nvp.fMax_Hz(1,1) double {mustBeNumeric} = 1.5E-3;       % Maximum desired frequency [Hz]
                 nvp.Periods(1,1) double {mustBeInteger} = 1;            % Default number of periods
-                nvp.fileName string = "fileName.csv";                   % CSV file name to save P eriods of the reference signal as two columns, time [s] and reference temperature [degC]
+                nvp.fileName string = "fileName.csv";                   % CSV file name to save P periods of the reference signal as two columns, time [s] and reference temperature [degC]
 
-                % Cell thermal propeties
+                % Cell thermal properties
                 nvp.cellConductivity_wpmk (1,1) double {mustBeNumeric} = 0.86;           % Cell thermal conductance [W/m/K]
                 nvp.cellThickness_m (1,1) double {mustBeNumeric} = 7.5E-3;               % Cell thickness [m]
                 nvp.cellSpecificHeatCapacity_Jp (1,1) double {mustBeNumeric} = 789.654;  % Cell specific heat capacity [J/kg/K]
@@ -70,7 +70,7 @@ classdef EntropyCoeffEstimator < handle
             obj.refSig.numPeriods = nvp.Periods;
             obj.refSig.textFileName = nvp.fileName;
 
-            % Populate cell thermal propeties
+            % Populate cell thermal properties
             obj.cellThermalProperties.cellConductivity_wpmk = nvp.cellConductivity_wpmk;
             obj.cellThermalProperties.cellThickness_m = nvp.cellThickness_m;
             obj.cellThermalProperties.cellSpecificHeatCapacity_Jp = nvp.cellSpecificHeatCapacity_Jp;
@@ -86,7 +86,7 @@ classdef EntropyCoeffEstimator < handle
 
             obj.results.cntr = 0;
 
-            % Create mltilevel temperature profile
+            % Create multilevel temperature profile
             obj = obj.MultiLevTempProfile();
 
             % Create P periods and save a text file for Peltier
@@ -295,7 +295,7 @@ classdef EntropyCoeffEstimator < handle
         end
 
         %%%%%%%%%%%%%%%%%%%%
-        % Ploting functions
+        % Plotting functions
         %%%%%%%%%%%%%%%%%%%%
         function PlotRefSig(obj)
             % Frequency domain
@@ -307,7 +307,7 @@ classdef EntropyCoeffEstimator < handle
             UrefHarm = UTmp(refHarm+1);
             UrefExc = UTmp(obj.refSig.excHarmonics+1);
 
-            % Suppressed componenets
+            % Suppressed components
             suppHarmMul = obj.refSig.Hsupp; % Suppressed harmonic multiples
             suppHarmsTmp  = [];
             for hh = 1:length(suppHarmMul)
@@ -361,7 +361,7 @@ classdef EntropyCoeffEstimator < handle
             UmeasExc = UMeasTmp(obj.refSig.excHarmonics+1);
             OmeasExc = OMeasTmp(obj.refSig.excHarmonics+1);
 
-            % Suppressed componenets
+            % Suppressed components
             suppHarmMul = obj.refSig.Hsupp; % Suppressed harmonic multiples
             suppHarmsTmp  = [];
             for hh = 1:length(suppHarmMul)
@@ -734,7 +734,7 @@ classdef EntropyCoeffEstimator < handle
                 end
 
             end
-            obj.processedData.Caloric = timetable(obj.measData.tempData.Time_s,Caloric,'VariableNames',"Caloric");
+            obj.processedData.Caloric = timetable(obj.measData.tempData.Time_s,MeanTemp.Caloric,'VariableNames',"Caloric");
         end
 
 
@@ -800,40 +800,17 @@ classdef EntropyCoeffEstimator < handle
                 nb = obj.estimationSettings.modelOrder_num;
             end
             if isempty(obj.estimationSettings.modelOrder_denom)
-                na = [1:10];    % Range for denomenator order
+                na = [1:10];    % Range for denominator order
             else
                 na = obj.estimationSettings.modelOrder_denom;
             end
 
             optOrder = selstruc(arxstruc(fdObjE,fdObjV,struc(na,nb,0)),0); % Estimate optimum order
 
-            % Update with optimium model orders
+            % Update with optimum model orders
             obj.estimationSettings.modelOrder_num = optOrder(2);
             obj.estimationSettings.modelOrder_denom = optOrder(1);
-            %
-            %
-            %                 % TF estimation settings
-            %                 tfEstOpt = tfestOptions('EnforceStability',1);
-            %                 tfEstOpt.InitializeOptions.MaxIterations = 7000;
-            %
-            %
-            %                 % Estimate discrete time transfer function
-            %                 optTF = tfest(fdObj,optOrder(1),optOrder(2),'Ts',Ts,tfEstOpt);
-            %
-            %                 numMean = sum(optTF.Numerator);
-            %                 denomMean = sum(optTF.Denominator);
-            %                 coeffSTD = sqrt(diag(optTF.Report.Parameters.FreeParCovariance));         % Standard deviations of numerator and denominator coefficients
-            %                 numSTD = sum(coeffSTD(1:optOrder(2)));
-            %                 denomSTD = sum(coeffSTD(optOrder(2)+1:end));
-            %                 numFracUncertanity = abs(numSTD/numMean);
-            %                 denomFracUncertanity = abs(denomSTD/denomMean);
 
-            %                 obj.results.optimumTF = optTF;
-            %                 obj.results.fitMetrics = optTF.Report.Fit;
-            %                 obj.results.dUdT_mVpK = numMean/denomMean*1000;                                                   % dUdT term [mV/K]. Steady-state gain of discrete time transfer function
-            %                 obj.results.dUdT_std = abs((numMean/denomMean))*(numFracUncertanity + denomFracUncertanity)*1000;  % Std of dUdT
-
-            %%% Go back to previous estimation code %%%
             % Parameterise the frequency response.
             % Initial TF estimation using Levi method
 
@@ -849,20 +826,14 @@ classdef EntropyCoeffEstimator < handle
             GOpt = freqs(optimumTf(1:optOrder(2)+1),[optimumTf(optOrder(2)+2:end);1],angFreq_rads);
             SSE = sum(abs(GOpt-kernel).^2);
             SST = sum(abs(kernel-mean(kernel)).^2);
-            tfResults.FitPercent = (1- SSE/SST)*100;
+            tfResults.FitPercent = (1 - SSE/SST)*100;
+            tfResults.RMSE = sqrt(SSE);
 
             obj.results.optimumTF = optimumTf;
             obj.results.optimumFRF = GOpt;
             obj.results.fitMetrics = tfResults;
             obj.results.dUdT_mVpK = optimumTf(optOrder(2)+1)*1000;                                                   % dUdT term [mV/K]. Steady-state gain of discrete time transfer function
             obj.results.dUdT_std = tfResults.stdTheta(optOrder(2)+1)*1000;  % Std of dUdT
-
-
-
-            %                 if log10(obj.results.dUdT_std) >= 1 && obj.results.cntr < 1
-            %                     obj.results.cntr = obj.results.cntr + 1;
-            %                     obj.EstimateEntropyCoeff("modelOrder_denom",1,"modelOrder_num",1,"transientOnOff",obj.estimationSettings.transientOnOff);
-            %                 end
 
         end
 
@@ -1042,7 +1013,7 @@ classdef EntropyCoeffEstimator < handle
             % Minimised cost-function f(theta)
             %   f(theta) = sum ((G(theta)_i-d_i)/s_i)^2  i = 1...M
             %
-            % Mandotory input argumetns
+            % Mandatory input arguments
             %   fh: function handle of nonlinear model. fh = @(theta, u)fcn(theta,u,optArg1,...,optArgN).
             %       Nonlinear model function should return two outputs, the model output and Jacobian as second
             %   theta0: Initial starting point of model parameters, size N x 1
@@ -1054,14 +1025,14 @@ classdef EntropyCoeffEstimator < handle
             %   s: Residual weights, normally std of noise, default s = 1, size M x 1
             %   iterMax: Maximum number of iterations, default iterMax = 1000, double size 1 x 1
             %   TolDT:  Termination tolerance of parameter update, default TolDT = 1E-6, double size 1 x 1
-            %   diagnosis: Set daignosis to 'on' to plot cost-function and lambda vs iterations, default diagnosis = 'off'
-            %   epsilon: if Jacobian is 'off', use epsilon for parameter incerement to calculate approximate Jacobian, default epsilon = 1E-6, double size 1 x 1
-            %   dispMsg: Specifiy as 'on' or 'off'. If 'on' messages will be printed
+            %   diagnosis: Set diagnosis to 'on' to plot cost-function and lambda vs iterations, default diagnosis = 'off'
+            %   epsilon: if Jacobian is 'off', use epsilon for parameter increment to calculate approximate Jacobian, default epsilon = 1E-6, double size 1 x 1
+            %   dispMsg: Specify as 'on' or 'off'. If 'on' messages will be printed
             %            else no messages are printed. Default 'on'.
             %
             % Output arguments:
             %   theta: Optimised parameter vector, size N x 1
-            %   results: Sturcture variable with fields
+            %   results: Structure variable with fields
             %            - covTheta: Covariance matrix of optimum parameters, size N x N
             %            - stdTheta: Standard deviation of optimum parameters, size N x 1
             %            - fracEr: Fractional error of optimum parameters, size N x 1
@@ -1070,10 +1041,7 @@ classdef EntropyCoeffEstimator < handle
             %            - termMsg: Reason for Levenberg-Marquardt iteration termination
             %            - rankMsg: Message stating rank of Levenberg-Marquardt regressor for each iteration, size ~ x 1
             %            - LMRankFull: A flag at each iteration with value 0 or 1 if regressor is rank deficient or not, size ~ x 1
-            %
-            % Copyright (C) W. D. Widanage -  WMG, University of Warwick, U.K. 14/10/2015 (Highway to hell!!)
-            % All Rights Reserved
-            % Software may be used freely for non-comercial purposes only
+            
 
             arguments
                 obj,
@@ -1083,7 +1051,7 @@ classdef EntropyCoeffEstimator < handle
                 d,
                 nvp.Jacobian = "off",
                 nvp.s = ones(size(d)),
-                nvp.iterMax = 1000,
+                nvp.iterMax = 5000,
                 nvp.TolDT = 1E-6,
                 nvp.diagnosis = "off",
                 nvp.epsilon = 1E-6,
@@ -1101,7 +1069,7 @@ classdef EntropyCoeffEstimator < handle
             Jw = spdiags(1./nvp.s,0,nData,nData); % Residual weights (noise std) of cost-function to scale each row of the Jacobain
 
 
-            % Evalaute model function and Jacobian for initial parameter values
+            % Evaluate model function and Jacobian for initial parameter values
             if ismember(JacStatus,'on')
                 [y,J_prevTmp] = fh(theta_prev,u);
             elseif ismember(JacStatus ,'off')
@@ -1129,9 +1097,9 @@ classdef EntropyCoeffEstimator < handle
                 while cF > cF_prev % Increase lambda and re-evaluate parameter update
                     lambda = lambda*10;
                     deltaT = parameterUpdate(obj,J_prev,F_prev,lambda);     % Calculate parameter update
-                    theta = theta_prev + deltaT;                        % Update parameter estimate
+                    theta = theta_prev + deltaT;                            % Update parameter estimate
 
-                    % Evalaute model function and Jacobian for updated parameter
+                    % Evaluate model function and Jacobian for updated parameter
                     if ismember(JacStatus ,'on')
                         [y, J_Tmp] = fh(theta,u);
                     elseif ismember(JacStatus ,'off')
@@ -1149,10 +1117,10 @@ classdef EntropyCoeffEstimator < handle
                 F_prev = F;
 
                 lambda = lambda/10;
-                [deltaT,regRank] = parameterUpdate(obj,J,F,lambda);       % Calucuate parameter update
-                theta = theta + deltaT;                               % Update parameter estimate
+                [deltaT,regRank] = parameterUpdate(obj,J,F,lambda);       % Calculate parameter update
+                theta = theta + deltaT;                                   % Update parameter estimate
 
-                % Evalaute model function and Jacobian for updated parameter
+                % Evaluate model function and Jacobian for updated parameter
                 if ismember(JacStatus ,'on')
                     [y,J_Tmp] = fh(theta,u);
                 elseif ismember(JacStatus ,'off')
@@ -1166,13 +1134,10 @@ classdef EntropyCoeffEstimator < handle
                 L_iter(iterUpdate,1) = lambda;
 
                 if regRank.unique == 0
-                    results.rankMsg{iterUpdate,1} =  sprintf(['LM Regressor rank deficient at iteration %d %s'],iterUpdate,regRank.msg);
-                    if strcmp(nvp.dispMsg,'on')
-                        fprintf(['\nLM Regressor rank deficient at iteration %d %s'],iterUpdate,regRank.msg);
-                    end
+                    results.rankMsg{iterUpdate,1} =  sprintf('LM Regressor rank deficient at iteration %d %s',iterUpdate,regRank.msg);
                     results.LMRankFull(iterUpdate,1) = regRank.unique;
                 else
-                    results.rankMsg{iterUpdate,1} = sprintf(['LM Regressor preserves full rank at iteration %d %s'],iterUpdate,regRank.msg);
+                    results.rankMsg{iterUpdate,1} = sprintf('LM Regressor preserves full rank at iteration %d %s',iterUpdate,regRank.msg);
                     results.LMRankFull(iterUpdate,1) = regRank.unique;
                 end
 
@@ -1180,7 +1145,7 @@ classdef EntropyCoeffEstimator < handle
             end % End of main while iterative loop
             iterUpdate = iterUpdate - 1; % Reduce iteration count by one when loop is exited
 
-            % Estiamte parameter covariance matrix
+            % Estimate parameter covariance matrix
             if all(nvp.s)                    % If measurement variance is not used in the cost function eistamte from residue for paramter variance scaling
                 sCF = cF/(nData-nPara);
             else
@@ -1194,9 +1159,10 @@ classdef EntropyCoeffEstimator < handle
 
             idx = [norm(deltaT) < nvp.TolDT, iterUpdate == nvp.iterMax];
             termStr = {[' Parameter update is smaller than specified tolerance, TolDT = ', num2str(nvp.TolDT),'.'],...
-                [' Maximum iteration reached, iterMax = ', num2str(nvp.iterMax),'.']};
+                       [' Maximum iteration reached, iterMax = ', num2str(nvp.iterMax),'.']};
             if strcmp(nvp.dispMsg,'on')
                 fprintf('\n\nIteration terminated: %s\n',termStr{idx});
+                fprintf('\nLM Regressor rank deficient at iteration %d \n %s \n',iterUpdate,regRank.msg);
             end
 
             results.covTheta = covTheta;
@@ -1222,7 +1188,7 @@ classdef EntropyCoeffEstimator < handle
             end
             K = ((J')*J + lambda*diag(diag((J')*J)));       % Create LM regressor matrix (cost-function Hessian + Steepest descent)
             Z = (-J')*F;                                    % Negative cost-function gradient
-            [deltaT,regRank] = LLs(obj,K,Z);                    % Call numerically stable linear least squares method
+            [deltaT,regRank] = LLs(obj,K,Z);                % Call numerically stable linear least squares method
         end
 
         function Diagnosis(obj,cF,L,I)
@@ -1230,24 +1196,24 @@ classdef EntropyCoeffEstimator < handle
                 obj,cF,L,I
             end
             figure()
-            semilogx([0:I-1],cF,'.-')
+            semilogx(0:I-1,cF,'.-')
             xlabel('Iteration number')
             ylabel('Cost-fucntion (y-d/s)^2')
 
             figure()
-            plot([0:I-1],L,'.-')
+            plot(0:I-1,L,'.-')
             xlabel('Iteration number')
             ylabel('Steepest descent lambda factor')
         end
 
         function [theta,results] = LLs(obj,K,Z,nvp)
             %
-            % Computes a numerically stable (weighted) linear leaast squares estimate
+            % Computes a numerically stable (weighted) linear least squares estimate
             % and returns the optimal estimate, its variance and an estimate of the
             % noise variance. Parameters will be non-unique if K is rank deficient.
             %
             % Inputs (mandatory):
-            %   K: Regresor matrix, size n x m
+            %   K: Regressor matrix, size n x m
             %   Z: Output vector, size n x 1
             %
             % Inputs (optional):
@@ -1265,10 +1231,6 @@ classdef EntropyCoeffEstimator < handle
             %            - resNorm: 2 norm of residual vector, size 1 x 1
             %            - regMsg: Message stating rank of regressor
             %            - regRankFull: A flag with value 0 or 1 if regressor is rank deficient or not.
-            %
-            % Copyright (C) W. D. Widanage -  WMG, University of Warwick, U.K. 11-02-2012-12/01/2016 (Through the never)
-            % All Rights Reserved
-            % Software may be used freely for non-comercial purposes only
 
             arguments
                 obj
@@ -1295,14 +1257,13 @@ classdef EntropyCoeffEstimator < handle
             N = diag(1./Knorm);
             Kn = K*N;
 
-            %Compute Lls via economic SVD decompostion
+            %Compute Lls via economic SVD decomposition
             [U, S, V] = svd(Kn,0);    % Perform SVD
             ss = diag(S);             % Singular values
             idxZeros = ss < 1E-14;    % Replace any small singular value with inf
             nCol = size(Kn,2);
             if sum(idxZeros)>0        % If there are zero singular values sum(idxZeros) > 0 and regressor is rank deficient
                 results.msg = sprintf('Estimated parameters are NON-UNIQUE.\n Lls regressor is rank defficient. Rank = %d instead of %d. \nParameters estimated from a subspace.',nCol-sum(idxZeros),nCol);
-                fprintf('\nEstimated parameters are NON-UNIQUE.\nRegressor rank defficient. Rank = %d instead of %d. \nParameters estimated from a subspace.\n\n',nCol-sum(idxZeros),nCol)
                 results.regRankFull = 0;
                 results.unique = 0;
             else
@@ -1315,7 +1276,6 @@ classdef EntropyCoeffEstimator < handle
 
             % Least squares solution
             theta = N*V*Sv*U'*Z;
-            % cond(N*V*Sv*U')
 
             %Projection matrix and residuals
             P = (eye(length(Z))-U*(U')); % Projection matrix
@@ -1343,7 +1303,7 @@ classdef EntropyCoeffEstimator < handle
         end
 
         function ct = CovTheta(obj,s,J)
-            % Numerically stable calculation of the parameter covaraince matrix.
+            % Numerically stable calculation of the parameter covariance matrix.
             %
             % Inputs
             %   s: Sum of squared residuals/(nDataPts - nPara) or 1, if CF is not weighted or weighted respectively
@@ -1368,7 +1328,7 @@ classdef EntropyCoeffEstimator < handle
             idxZeros = ss < 1E-14;          % Replace any small singular value with inf
             nCol = size(Jn,2);
             if sum(idxZeros)>0
-                regRank.msg = sprintf('\nRegressor is rank defficient. Rank = %d instead of %d. \nParameters estimated from a subspace.',nCol-sum(idxZeros),nCol);
+                regRank.msg = sprintf('\nRegressor is rank deficient. Rank = %d instead of %d. \nParameters estimated from a subspace.',nCol-sum(idxZeros),nCol);
                 regRank.unique = 0;
             else
                 regRank.msg = sprintf('Estimated parameters are unique.\nRegressor preserves full rank. Rank =  %d.', nCol);
@@ -1385,7 +1345,7 @@ classdef EntropyCoeffEstimator < handle
             % Approximate Jacobian with a first order finite difference
             %
             % Inputs:
-            %   theta : Paramater vector. Size nTheta x 1
+            %   theta : Parameter vector. Size nTheta x 1
             %   y: Model output evaluated at theta. Size nData x 1
             %   fh: Function handle
             %   p: Structure to epsilon and input data to simulate model function
