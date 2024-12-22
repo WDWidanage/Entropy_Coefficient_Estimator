@@ -25,6 +25,7 @@ suppFreq_Hz = suppHarms/(obj.refSig.Nref*obj.refSig.Ts_s);
 UrefSupp = UTmp(suppHarms+1);
 
 figure(1)
+axes(ColorOrder=brewermap([],'Set2'),NextPlot = 'replacechildren');
 stairs(obj.refSig.refTimeVec_s/3600,obj.refSig.refTempSig,'. -'); grid on;
 xlabel('Time [H]'); ylabel({'Reference temperature';'signal [deg$^\circ$C]'})
 PrepareFigure(1,'LineWidth',2,'pdf','fileName','signal-time','axisFontSize',24,'labelFontSize',30,'annotationFontSize',30')

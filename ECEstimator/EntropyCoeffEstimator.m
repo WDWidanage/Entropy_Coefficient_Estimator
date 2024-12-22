@@ -277,10 +277,11 @@ classdef EntropyCoeffEstimator < handle
             arguments
                 obj
                 % dUdT estimation settings
-                nvp.transientOnOff (1,1) {mustBeTextScalar} = " ";       % Set to "on" if OCV hasn't reached steady state
+                nvp.transientOnOff (1,1) {mustBeTextScalar} = " ";      % Set to "on" if OCV hasn't reached steady state
                 nvp.modelOrder_num = [];                                % Transfer function numerator model order
-                nvp.modelOrder_denom = [];                              % Transfer function denomenator model order
+                nvp.modelOrder_denom = [];                              % Transfer function denominator model order
                 nvp.usePeriods = [];                                    % Use the following periods for kernel function fit
+                nvp.freqIdx_estimation {mustBeInteger} = [];            % An option to specify which frequency indices to use for fitting, 
             end
 
             % Populate estimation settings
@@ -288,6 +289,12 @@ classdef EntropyCoeffEstimator < handle
             obj.estimationSettings.modelOrder_num = nvp.modelOrder_num;
             obj.estimationSettings.modelOrder_denom = nvp.modelOrder_denom;
             obj.estimationSettings.usePeriods = nvp.usePeriods;
+            
+            if isempty(nvp.freqIdx_estimation)
+                obj.estimationSettings.freqIdx_estimation = 1:numel(obj.refSig.excHarmonics);
+            else
+                obj.estimationSettings.freqIdx_estimation = nvp.freqIdx_estimation;
+            end
 
             obj.ReshapeAveragePeriods();
             obj.estimateFRF();
@@ -377,7 +384,7 @@ classdef EntropyCoeffEstimator < handle
             % Reference and measured temperature time and frequency plots
             figure()
             subplot(3,1,1)
-            stairs(hours(obj.processedData.CaloricPeriod_degC.Time),[obj.refSig.refTempSig,obj.processedData.CaloricPeriod_degC.Caloric_Period],'. -');
+            stairs(hours(obj.processedData.CaloricPeriod_degC.Time),[obj.refSig.refTempSig, obj.processedData.CaloricPeriod_degC.Caloric_Period],'. -');
             xlabel("Time [H]"); ylabel("Temperature [degC]")
 
             subplot(3,1,2)
@@ -433,15 +440,17 @@ classdef EntropyCoeffEstimator < handle
 
         function PlotKernelFit(obj)
 
-            freqExc = obj.refSig.excFreq_Hz*1000;
-            modelResp = obj.results.optimumFRF;
+            freqIdx_estimation = obj.estimationSettings.freqIdx_estimation;
+            freqExc = obj.refSig.excFreq_Hz(freqIdx_estimation)*1000;
+            model_respone = obj.results.optimumFRF(freqIdx_estimation);
+            kernel_response = obj.results.kernel(freqIdx_estimation);
 
             figure
             db = @(x)20*log10(abs(x));
             phG = @(G) unwrap(angle(G))*180/pi;     % Function for transfer function phase
 
-            kernel_phase = phG(obj.results.kernel);
-            TF_phase = phG(modelResp);
+            kernel_phase = phG(kernel_response);
+            TF_phase = phG(model_respone);
 
             if any(kernel_phase < 0)
                 kernel_phase = kernel_phase + 360;
@@ -452,7 +461,7 @@ classdef EntropyCoeffEstimator < handle
             
             titleStr = sprintf("Model Order: num %d denom %d.  Model fit: %.1f%%",obj.estimationSettings.modelOrder_num,obj.estimationSettings.modelOrder_denom,obj.results.fitMetrics.FitPercent);
             ax(1) = subplot(2,1,1);
-            semilogx(freqExc,db(obj.results.kernel),'. -',freqExc,db(modelResp), '-')
+            semilogx(freqExc,db(kernel_response),'. -',freqExc,db(model_respone), '-')
             xlabel('Excited frequencies [mHz]'); ylabel('Magnitude [dB]'); legend('Kernel','TF fit'); title(titleStr)
             ax(2) = subplot(2,1,2);
             semilogx(freqExc,kernel_phase,'. -',freqExc,TF_phase,'-')
@@ -624,12 +633,13 @@ classdef EntropyCoeffEstimator < handle
 
             if numOffSamples > 0
                 if numPeriods > 1 singPlrStr = "periods"; else singPlrStr = "period"; end
-                wrnMsg = ["Measured data are not an integer multiple of the reference signal period\nMeasured data has %d %s and %d extra samples"];
+                wrnMsg = "Measured data are not an integer multiple of the reference signal period\nMeasured data has %d %s and %d extra samples";
                 warning(wrnMsg,numPeriods,singPlrStr,numOffSamples)
             end
 
             totalNumSamples =  numPeriods*obj.refSig.Nref;
-            idxRng = numSigSamples - totalNumSamples +1 : numSigSamples;
+            % idxRng = numSigSamples - totalNumSamples +1 : numSigSamples;
+            idxRng = 1:totalNumSamples;
 
             % Get integer number of periods
             timeVecTmp = obj.measData.tempData.Time_s(idxRng);
@@ -644,11 +654,7 @@ classdef EntropyCoeffEstimator < handle
                         pAveIdx = 1;
                     end
                 else
-                    if obj.estimationSettings.usePeriods > 1
-                        pAveIdx = 2:obj.estimationSettings.usePeriods;
-                    else
-                        pAveIdx = 1;
-                    end
+                    pAveIdx = obj.estimationSettings.usePeriods;
 
                 end
             catch
@@ -692,10 +698,6 @@ classdef EntropyCoeffEstimator < handle
 
         function obj = CaloricCellTemperature(obj)
 
-            alphaCuCell = obj.cellThermalProperties.copperConductivity_wpmk/obj.cellThermalProperties.copperThickness_m; %Approximation heat conductivity Cu-plate to Cell, W/(m^2*K)
-            KeyFigures.Nu2Infinity = (pi^2)/2;
-            KeyFigures.Bi = (alphaCuCell * obj.cellThermalProperties.cellThickness_m)/ obj.cellThermalProperties.cellConductivity_wpmk; %Biot-Number
-            KeyFigures.NuiInfinity = (4+obj.cellThermalProperties.GeoFactor + KeyFigures.Bi)/(1+(KeyFigures.Bi/KeyFigures.Nu2Infinity));
 
             % % IMPROVE: Write a generic function to select which channels to average
             try
@@ -711,12 +713,18 @@ classdef EntropyCoeffEstimator < handle
                 tmpSetTemp = repmat(obj.refSig.refTempSig,numPeriods,1);
                 setTemp = tmpSetTemp(1:length(MeanTemp.TECRef));
             end
-            Zeilen = size(MeanTemp.TECRef,1);
+            
+            alphaCuCell = obj.cellThermalProperties.copperConductivity_wpmk/obj.cellThermalProperties.copperThickness_m; %Approximation heat conductivity Cu-plate to Cell, W/(m^2*K)
+            KeyFigures.Nu2Infinity = (pi^2)/2;
+            KeyFigures.Bi = (alphaCuCell * obj.cellThermalProperties.cellThickness_m)/ obj.cellThermalProperties.cellConductivity_wpmk; %Biot-Number
+            KeyFigures.NuiInfinity = (4+obj.cellThermalProperties.GeoFactor + KeyFigures.Bi)/(1+(KeyFigures.Bi/KeyFigures.Nu2Infinity));
+
+            Cell = size(MeanTemp.TECRef,1);
             t = 2;
             Caloric(1,1) = 0;
-            for ii = 2:Zeilen
+            for ii = 2:Cell
                 if isequal(setTemp(ii), setTemp(ii-1))
-                    %Kalorische Mitteltemperatur
+                    % Caloric interior temperature
                     KeyFigures.Fo(ii) = (obj.cellThermalProperties.cellConductivity_wpmk*t)/(obj.cellThermalProperties.cellThickness_m^2 * obj.cellThermalProperties.cellDenisty_kgpm3 * obj.cellThermalProperties.cellSpecificHeatCapacity_Jp);
                     KeyFigures.Nui0(ii) = (sqrt(pi)+ 10*KeyFigures.Bi*sqrt(KeyFigures.Fo(ii)))/(1+5*KeyFigures.Bi*sqrt(pi*KeyFigures.Fo(ii)))*1/sqrt(KeyFigures.Fo(ii));
                     KeyFigures.Nui(ii) = sqrt((KeyFigures.NuiInfinity^2)-(0.4^2)+(KeyFigures.Nui0(ii) + 0.4)^2);
@@ -725,7 +733,7 @@ classdef EntropyCoeffEstimator < handle
                     t = t+2;
                 else
                     t = 2;
-                    %Kalorische Mitteltemperatur
+                    % Caloric interior temperature
                     KeyFigures.Fo(ii) = (obj.cellThermalProperties.cellConductivity_wpmk*t)/(obj.cellThermalProperties.cellThickness_m^2 * obj.cellThermalProperties.cellDenisty_kgpm3 * obj.cellThermalProperties.cellSpecificHeatCapacity_Jp);
                     KeyFigures.Nui0(ii) = ((sqrt(pi)+ 10*KeyFigures.Bi*sqrt(KeyFigures.Fo(ii)))/(1+5*KeyFigures.Bi*sqrt(pi*KeyFigures.Fo(ii))))*(1./sqrt(KeyFigures.Fo(ii)));
                     KeyFigures.Nui(ii) = sqrt(KeyFigures.NuiInfinity^2-0.4^2.+(KeyFigures.Nui0(ii) + 0.4)^2);
@@ -734,6 +742,8 @@ classdef EntropyCoeffEstimator < handle
                 end
 
             end
+
+
             obj.processedData.Caloric = timetable(obj.measData.tempData.Time_s,MeanTemp.Caloric,'VariableNames',"Caloric");
         end
 
@@ -782,15 +792,17 @@ classdef EntropyCoeffEstimator < handle
 
         function fitFRF(obj)
 
-            kernel = obj.results.kernel;
-            Cg = obj.results.varKernel;
-            angFreq_rads = 2*pi*obj.refSig.excFreq_Hz;
+            freqIdx_estimation = obj.estimationSettings.freqIdx_estimation;
+            angFreq_rads = 2*pi*obj.refSig.excFreq_Hz(freqIdx_estimation);
+            kernel = obj.results.kernel(freqIdx_estimation);
+            Cg = obj.results.varKernel(freqIdx_estimation);
+
             Ts = obj.refSig.Ts_s;
 
 
             idxE = 1:2:length(angFreq_rads);
             idxV = 2:2:length(angFreq_rads);
-            fdObj = idfrd(kernel,angFreq_rads,Ts); % Create a frequency response obj
+            fdObj = idfrd(kernel,angFreq_rads,Ts);              % Create a frequency response obj
             fdObjE = idfrd(kernel(idxE),angFreq_rads(idxE),Ts); % Create a frequency response obj
             fdObjV = idfrd(kernel(idxV),angFreq_rads(idxV),Ts); % Create a frequency response obj
 
@@ -814,7 +826,7 @@ classdef EntropyCoeffEstimator < handle
             % Parameterise the frequency response.
             % Initial TF estimation using Levi method
 
-             wNorm = angFreq_rads*Ts;
+            wNorm = angFreq_rads*Ts;
             leviTF = LeviAlgorithm(obj,kernel,wNorm,optOrder(2),optOrder(1),"fs",1/Ts);       % Transfer function fi using Levi method
             theta0 = [leviTF.B;leviTF.A];
 

@@ -82,7 +82,7 @@ for zz = 1:numel(z)
     kerObj(zz,1).ImportRefSig("filePth",fullfile(dataPth,"refSig","refSig_1050_July2022.mat")); % Import reference signal
     kerObj(zz,1).ImportExpData("filePth",fullfile(dataPth,freqTextFilesInfo(zz).name),"HdrNames",hdrNames);
     fprintf("Estimating for SoC %d\n",z(zz))
-    kerObj(zz,1).EstimateEntropyCoeff("usePeriods",[1,2],"transientOnOff","on");
+    kerObj(zz,1).EstimateEntropyCoeff("usePeriods",1,"transientOnOff","on");
     
     % Collect GoF, model order and full-rank status
     GoF(zz,1) = kerObj(zz).results.fitMetrics.FitPercent;
@@ -95,22 +95,29 @@ for zz = 1:numel(z)
     dUdTK_std(zz,1) = kerObj(zz,1).results.dUdT_std;
 end
 
-results_table = table(z,GoF,RMSE,full_rank,model_order);
+kernel_results_table = table(z,GoF,RMSE,full_rank,model_order);
 
 % Improve fit for low GoFs
-close all
+soc_select = 10;
+idx = find(soc_select == z);
+kerObj(idx,1).EstimateEntropyCoeff("usePeriods",1,"transientOnOff","on","modelOrder_num",2,"modelOrder_denom",3,freqIdx_estimation=(1:5));
+
 soc_select = 20;
 idx = find(soc_select == z);
-kerObj(idx,1).EstimateEntropyCoeff("usePeriods",1,"transientOnOff","on","modelOrder_num",6,"modelOrder_denom",5);
+kerObj(idx,1).EstimateEntropyCoeff("usePeriods",1,"transientOnOff","on","modelOrder_num",2,"modelOrder_denom",3,freqIdx_estimation=(1:5));
+
+soc_select = 25;
+idx = find(soc_select == z);
+kerObj(idx,1).EstimateEntropyCoeff("usePeriods",1,"transientOnOff","on","modelOrder_num",2,"modelOrder_denom",3,freqIdx_estimation=(1:5));
+kerObj(idx).results.fitMetrics.FitPercent
 
 soc_select = 30;
 idx = find(soc_select == z);
-kerObj(idx,1).EstimateEntropyCoeff("usePeriods",1,"transientOnOff","on","modelOrder_num",6,"modelOrder_denom",5);
-
+kerObj(idx,1).EstimateEntropyCoeff("usePeriods",1,"transientOnOff","on","modelOrder_num",2,"modelOrder_denom",3,freqIdx_estimation=(1:5));
 
 soc_select = 95;
 idx = find(soc_select == z);
-kerObj(idx,1).EstimateEntropyCoeff("usePeriods",1,"transientOnOff","on","modelOrder_num",2,"modelOrder_denom",4);
+kerObj(idx,1).EstimateEntropyCoeff("usePeriods",1,"transientOnOff","on","modelOrder_num",2,"modelOrder_denom",3,freqIdx_estimation=(1:5));
 
 % Re-collect kernel based dUdT and the standard deviation and fit metrics
 for zz = 1:length(z)
@@ -120,17 +127,69 @@ for zz = 1:length(z)
     % Collect GoF, model order and full-rank status
     GoF(zz,1) = kerObj(zz).results.fitMetrics.FitPercent;
     RMSE(zz,1) = kerObj(zz).results.fitMetrics.RMSE;
+    full_rank(zz,1) = kerObj(zz,1).results.fitMetrics.LMRankFull(end);
+
     model_order(zz,:) = [kerObj(zz).estimationSettings.modelOrder_num,kerObj(zz).estimationSettings.modelOrder_denom]; 
    
 end
 
-results_table = table(z,GoF,RMSE,model_order);
+kernel_results_table = table(z,GoF,RMSE,full_rank,model_order,dUdTK,dUdTK_std);
+head(kernel_results_table)
 
-
-%% Figure 3: FRF and TF Fit
+%% Figure 3: Reference signal, processed temperature and OCV
 
 close all
-soc_select = 45;
+soc_select = 80;
+idx = find(soc_select == z);
+
+ref_time = kerObj(idx).refSig.refTimeVec_s;
+ref_temperature_signal = kerObj(idx).refSig.refTempSig;
+meas_mean_temp_signal = kerObj(idx).processedData.CaloricPeriod_degC.Caloric_Period;
+meas_ocv_signal = kerObj(idx).processedData.ocvPeriod_V.OCV_Period;
+
+figure();
+stairs(ref_time/3600,ref_temperature_signal); hold on
+stairs(ref_time/3600,meas_mean_temp_signal,'. -')
+xlabel("Time [H]"); ylabel("Temperature [degC]"); grid on;
+savefig(gcf,fullfile(pwd,'Reference_Processed_Temperature.fig'))
+
+figure
+plot(ref_time/3600,meas_ocv_signal,'. -');
+xlabel("Time [H]"); ylabel("OCV [V]"); grid on;
+savefig(gcf,fullfile(pwd,'Measured_OCV.fig'))
+
+%% Figure 4: Temperature and OCV frequency content
+close all
+soc_select = 80;
+idx = find(soc_select == z);
+kerObj(idx).PlotProcessedSig;
+
+% FFT plot of measured mean temperature 
+figure(1)
+p = gcf().Children(2).Children; % FFT of measured mean temperature
+figure
+plot(p(1).XData,p(1).YData,'o')
+semilogx(p(3).XData,p(3).YData,'o r',p(2).XData,p(2).YData,'* b',p(1).XData,p(1).YData,'o g'); grid on;
+xlabel('Freq (mHz)'); ylabel({' Temperature FFT'; 'magnitude [-]'}); 
+legend('Excited frequencies','All frequencies', 'Suppressed frequencies')
+savefig(gcf,fullfile(pwd,'Measured_Temperature_FFT.fig'))
+
+
+% FFT plot of measured mean temperature 
+figure(2)
+p = gcf().Children(2).Children; % FFT of measured mean temperature
+figure
+plot(p(1).XData,p(1).YData,'o')
+semilogx(p(3).XData,p(3).YData,'o r',p(2).XData,p(2).YData,'* b',p(1).XData,p(1).YData,'o g'); grid on;
+xlabel('Freq (mHz)'); ylabel({' Temperature FFT'; 'magnitude [-]'}); 
+legend('Excited frequencies','All frequencies', 'Suppressed frequencies')
+savefig(gcf,fullfile(pwd,'Measured_OCV_FFT.fig'))
+
+
+%% Figure 5: FRF and TF Fit
+
+close all
+soc_select = 80;
 idx = find(soc_select == z);
 
 freq_mHz = kerObj(idx).refSig.excFreq_Hz*1000;
@@ -165,12 +224,13 @@ xlabel("Frequency [mHz]"); ylabel("Phase [rad]"); legend(["$\angle \hat{G}(\omeg
 savefig(gcf,fullfile(pwd,'Kernel_Fit_Phase.fig'))
 
 
-%% Potentiometric based method
+%% Figure 6: Potentiometric based method
 
+close all
 potTextFilesInfo = dir(fullfile(dataPth,"*Potentiometric.txt"));
 hdrNames = ["time", "TEC1", "TEC2", "BoxTop", "TabAnode", "SurfaceBottomAnode", "SurfaceTopAnode", "SurfaceBottomCathode", "SurfaceTopCathode", "TabCathode", "SurfaceTopCenter", "SurfaceBottomCenter", "CoolingBlockTop", "Ambient", "U"];
-z = 0:5:100; % SoC break points
-plot_intermediate = false;
+z = (0:5:100)'; % SoC break points
+plot_soc = 80;
 
 for zz = 1:numel(z)
     filePath = fullfile(dataPth,potTextFilesInfo(zz).name);
@@ -180,12 +240,15 @@ for zz = 1:numel(z)
     Time_s = seconds(potData.(1) - potData.(1)(1)); % Reset time to 0 seconds
     potData.Time_s = Time_s;
     potData = table2timetable(potData,"RowTimes",Time_s);
-    potDuration = hours(potData.Time(end))
+    potDuration(zz,1) = hours(potData.Time(end));
     caloricTemp = CaloricCellTemperature(potData);
+    
+    % Signals for potentiometric method
     time = caloricTemp.Time;
-    temp = caloricTemp.meanCaloric;
+    temp = caloricTemp.mean_temperature_degC;
     ocv = potData.U;
 
+    % Index set
     idx50 = find(temp > 49.5 & temp < 50.5, 1, 'last');
     idx40 = find(temp > 39.3 & temp < 40.3, 1,'last');
     idx30 = find(temp > 29.01 & temp < 30.01, 1,'last');
@@ -194,42 +257,47 @@ for zz = 1:numel(z)
 
     idxSS = [idx50,idx40,idx30,idx20,idx10];
 
-    ssOCV = ocv(idxSS);
     ssTemp = temp(idxSS);
-
-    tempSelected = ssTemp;
-    ocvSelected = ssOCV*1000; % [mV]
+    ssOCV = ocv(idxSS);
 
     % Best fit
-    K = [ones(size(tempSelected)),tempSelected];    % Regressor matrix;
-    [dUdTP_Tmp,dudTP_info] = Lls(K,ocvSelected);
-    dUdTFit = polyval(flipud(dUdTP_Tmp),ssTemp)/1000;       % [V]
+    K = [ones(size(ssTemp)),ssTemp];                  % Regressor matrix;
+    [dUdTP_Tmp,dudTP_info] = Lls(K,ssOCV);            % Straight line fit
+    dUdTFit = polyval(flipud(dUdTP_Tmp),ssTemp);      % [V]
 
-    dUdTP(zz,1) = dUdTP_Tmp(2);
-    dUdTP_std(zz,1) = sqrt(dudTP_info.paraVar(2));
+    dUdTP(zz,1) = dUdTP_Tmp(2)*1000;                        % [mV/K]
+    dUdTP_std(zz,1) = sqrt(dudTP_info.paraVar(2))*1000;     % [mV/K]
 
-    if (plot_intermediate)
+    % Error metrics
+    [RMSE_tmp, GoF_tmp] = CalculateErrorMetrics(dUdTFit,ssOCV);
+    RMSE(zz,1) = RMSE_tmp;
+    GoF(zz,1) = GoF_tmp;
+
+    if (z(zz) == plot_soc)
         figure
         subplot(2,1,1);
-        plot(hours(time),potData.U);
+        plot(hours(time),potData.U); grid on;
         xlabel("Time [H]"); ylabel("OCV [V]"); title(['SoC: ' num2str(z(zz)) '%'])
 
         subplot(2,1,2);
-        plot(hours(time),temp,'. -',...
-            hours(time(idx50)),temp(idx50),'o',...
-            hours(time(idx40)),temp(idx40),'o',...
-            hours(time(idx30)),temp(idx30),'o',...
-            hours(time(idx20)),temp(idx20),'o',...
-            hours(time(idx10)),temp(idx10),'o')
+        plot(hours(time),temp,'. -'); grid on;
         xlabel("Time [H]"); ylabel("Temperature [degC]")
+        savefig(gcf,fullfile(pwd,sprintf('Potentiometric_Signal_%d.fig',z(zz))))
 
         figure
-        plot(ssTemp,ssOCV,'x',ssTemp,dUdTFit,'-')
+        plot(ssTemp,ssOCV,'x',ssTemp,dUdTFit,'-'); grid on;
         xlabel("Temperature steady-state [degC]"); ylabel("OCV steadystate [V]"); title(['SoC: ' num2str(z(zz)) '%'])
+        savefig(gcf,fullfile(pwd,sprintf('Potentiometric_Fit_%d.fig',z(zz))))
+
     end
 end
-%% Plot dUdT for Kernel, potentiometric
 
+pot_results_table = table(z,GoF,RMSE,potDuration,dUdTP,dUdTP_std);
+head(pot_results_table)
+
+%% Figure 7: Plot dUdT for Kernel and potentiometric method
+
+close all
 figure
 [z_sort,idx_sort] = sort(z);
 errorbar(z_sort,dUdTK(idx_sort),dUdTK_std(idx_sort))
@@ -239,43 +307,19 @@ xlabel("SoC [%]"); ylabel("dUdT [mV/K]")
 legend(["Kernel based","Potentiometirc"],"Location","best")
 
 savefig(fullfile(pwd,'Kernal_Potentiometric_dUdT.fig'))
-%% Function to calculate caloric temperature 
+
+%% Helper functions
+% Function to calculate mean temperature 
 
 function [caloricTemp] = CaloricCellTemperature(potData)
-p = EntropyCoeffEstimator();
-
-alphaCuCell = p.cellThermalProperties.copperConductivity_wpmk/p.cellThermalProperties.copperThickness_m; % Approximation heat conductivity Cu-plate to Cell, W/(m^2*K)
-KeyFigures.Nu2Infinity = (pi^2)/2;
-KeyFigures.Bi = (alphaCuCell * p.cellThermalProperties.cellThickness_m)/ p.cellThermalProperties.cellConductivity_wpmk; % Biot-Number
-KeyFigures.NuiInfinity = (4+p.cellThermalProperties.GeoFactor + KeyFigures.Bi)/(1+(KeyFigures.Bi/KeyFigures.Nu2Infinity));
-
-
-MeanTemp.TECRef = (potData.TEC1 + potData.TEC2)/2;
-MeanTemp.Caloric = (potData.SurfaceTopCenter + potData.SurfaceTopCathode + potData.SurfaceTopAnode + potData.SurfaceBottomCenter + potData.SurfaceBottomCathode)/5; %for erste Zeile kann wegen t=0 keine kalorische Mitteltemperatur berechnet werden
-setTemp = MeanTemp.TECRef;
-
-Zeilen = size(MeanTemp.TECRef,1);
-t = 2;
-Caloric(1,1) = 0;
-for ii = 2:Zeilen
-    if isequal(setTemp(ii), setTemp(ii-1))
-        %Kalorische Mitteltemperatur
-        KeyFigures.Fo(ii) = (p.cellThermalProperties.cellConductivity_wpmk*t)/(p.cellThermalProperties.cellThickness_m^2 * p.cellThermalProperties.cellDenisty_kgpm3 * p.cellThermalProperties.cellSpecificHeatCapacity_Jp);
-        KeyFigures.Nui0(ii) = (sqrt(pi)+ 10*KeyFigures.Bi*sqrt(KeyFigures.Fo(ii)))/(1+5*KeyFigures.Bi*sqrt(pi*KeyFigures.Fo(ii)))*1/sqrt(KeyFigures.Fo(ii));
-        KeyFigures.Nui(ii) = sqrt((KeyFigures.NuiInfinity^2)-(0.4^2)+(KeyFigures.Nui0(ii) + 0.4)^2);
-        KeyFigures.NTUi(ii) = (p.cellThermalProperties.GeoFactor * KeyFigures.Fo(ii))/((1/KeyFigures.Bi) + (1/KeyFigures.Nui(ii)));
-        Caloric(ii,1) = (MeanTemp.TECRef(ii) + (MeanTemp.Caloric(ii-(t/2))-MeanTemp.TECRef(ii))*exp(-KeyFigures.NTUi(ii)));
-        t = t+2;
-    else
-        t = 2;
-        %Kalorische Mitteltemperatur
-        KeyFigures.Fo(ii) = (p.cellThermalProperties.cellConductivity_wpmk*t)/(p.cellThermalProperties.cellThickness_m^2 * p.cellThermalProperties.cellDenisty_kgpm3 * p.cellThermalProperties.cellSpecificHeatCapacity_Jp);
-        KeyFigures.Nui0(ii) = ((sqrt(pi)+ 10*KeyFigures.Bi*sqrt(KeyFigures.Fo(ii)))/(1+5*KeyFigures.Bi*sqrt(pi*KeyFigures.Fo(ii))))*(1./sqrt(KeyFigures.Fo(ii)));
-        KeyFigures.Nui(ii) = sqrt(KeyFigures.NuiInfinity^2-0.4^2.+(KeyFigures.Nui0(ii) + 0.4)^2);
-        KeyFigures.NTUi(ii) = (p.cellThermalProperties.GeoFactor * KeyFigures.Fo(ii))/((1/KeyFigures.Bi) + (1/KeyFigures.Nui(ii)));
-        Caloric(ii,1) =(MeanTemp.TECRef(ii) + (MeanTemp.Caloric(ii-1) - MeanTemp.TECRef(ii))*exp(-KeyFigures.NTUi(ii)));
-    end
-
+MeanTemp = (potData.SurfaceTopCenter + potData.SurfaceTopCathode + potData.SurfaceTopAnode + potData.SurfaceBottomCenter + potData.SurfaceBottomCathode)/5;
+caloricTemp = timetable(potData.Time_s, MeanTemp,'VariableNames',"mean_temperature_degC");
 end
-caloricTemp = timetable(potData.Time_s,Caloric, MeanTemp.Caloric, MeanTemp.TECRef,'VariableNames',["dynamicCaloric","meanCaloric","meanTecRef"]);
+
+% Error metrics
+function [RMSE,GoF] = CalculateErrorMetrics(model,meas)
+SSE = sum((model - meas).^2);
+SST = sum(abs(meas-mean(meas)).^2);
+RMSE = sqrt(SSE);
+GoF = (1 - SSE/SST)*100;
 end
