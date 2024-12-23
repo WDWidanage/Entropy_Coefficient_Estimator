@@ -306,8 +306,9 @@ classdef EntropyCoeffEstimator < handle
         %%%%%%%%%%%%%%%%%%%%
         function PlotRefSig(obj)
             % Frequency domain
+            freqExc_mHz = obj.refSig.excFreq_Hz*1000;
             refHarm = 1:floor(obj.refSig.Nref/2);
-            refFreqVec = refHarm/(obj.refSig.Nref*obj.refSig.Ts_s);
+            refFreqVec_mHz = refHarm/(obj.refSig.Nref*obj.refSig.Ts_s)*1000;
             UTmp = fft(obj.refSig.refTempSig);
 
             % Excited components
@@ -321,7 +322,7 @@ classdef EntropyCoeffEstimator < handle
                 suppHarmsTmp = [suppHarmsTmp ,suppHarmMul(hh):suppHarmMul(hh): obj.refSig.excHarmonics(end)];
             end
             suppHarms = sort(suppHarmsTmp); % Sort the suppressed harmonics in ascending order
-            suppFreq_Hz = suppHarms/(obj.refSig.Nref*obj.refSig.Ts_s);
+            suppFreq_mHz = suppHarms/(obj.refSig.Nref*obj.refSig.Ts_s)*1000;
             UrefSupp = UTmp(suppHarms+1);
 
             figure()
@@ -330,17 +331,17 @@ classdef EntropyCoeffEstimator < handle
             xlabel('Time (H)'); ylabel({'Reference temperature';'Signal [deg^\circC]'})
 
             subplot(2,1,2)
-            semilogx(obj.refSig.excFreq_Hz*1000,abs(UrefExc),'o r',refFreqVec*1000,abs(UrefHarm),'* b'); hold on;
+            semilogx(freqExc_mHz,abs(UrefExc),'o r',refFreqVec_mHz,abs(UrefHarm),'* b'); hold on;
             xlabel('Freq (mHz)'); ylabel({' Temperature FFT'; 'magnitude [-]'})
             legend('Excited frequencies','All frequencies')
             if ~isempty(suppHarms)
-                semilogx(suppFreq_Hz*1000,abs(UrefSupp),'o g'); hold on;
+                semilogx(suppFreq_mHz,abs(UrefSupp),'o g'); hold on;
                 legend('Excited frequencies','All frequencies', 'Suppressed frequencies')
             end
         end
 
         function PlotMeasSig(obj)
-            % Plot all measured temperature signals and OCV agaist time
+            % Plot all measured temperature signals and OCV against time
             figure
             stackedplot(hours(obj.measData.tempData.Time_s),obj.measData.tempData.Variables,"DisplayLabels",obj.measData.tempData.Properties.VariableNames);
             xlabel('Time [s]')
@@ -354,8 +355,10 @@ classdef EntropyCoeffEstimator < handle
             obj.ReshapeAveragePeriods();
 
             % Frequency domain
-            refHarm = 1:floor(obj.refSig.Nref/2);
-            refFreqVec = refHarm/(obj.refSig.Nref*obj.refSig.Ts_s);
+            N = obj.refSig.Nref;
+            freqExc_mHz = obj.refSig.excFreq_Hz*1000; 
+            refHarm = 1:floor(N/2);
+            refFreqVec_mHz = refHarm/(obj.refSig.Nref*obj.refSig.Ts_s)*1000;
             URefTmp = fft(obj.refSig.refTempSig);
             UMeasTmp = fft(obj.processedData.CaloricPeriod_degC.Caloric_Period);
             OMeasTmp = fft(obj.processedData.ocvPeriod_V.OCV_Period);
@@ -368,6 +371,8 @@ classdef EntropyCoeffEstimator < handle
             UmeasExc = UMeasTmp(obj.refSig.excHarmonics+1);
             OmeasExc = OMeasTmp(obj.refSig.excHarmonics+1);
 
+            
+
             % Suppressed components
             suppHarmMul = obj.refSig.Hsupp; % Suppressed harmonic multiples
             suppHarmsTmp  = [];
@@ -375,7 +380,7 @@ classdef EntropyCoeffEstimator < handle
                 suppHarmsTmp = [suppHarmsTmp ,suppHarmMul(hh):suppHarmMul(hh): obj.refSig.excHarmonics(end)];
             end
             suppHarms = sort(suppHarmsTmp); % Sort the suppressed harmonics in ascending order
-            suppFreq_Hz = suppHarms/(obj.refSig.Nref*obj.refSig.Ts_s);
+            suppFreq_mHz = suppHarms/(obj.refSig.Nref*obj.refSig.Ts_s)*1000;
             UrefSupp = URefTmp(suppHarms+1);
             UmeasSupp = UMeasTmp(suppHarms+1);
             OmeasSupp = OMeasTmp(suppHarms+1);
@@ -388,19 +393,19 @@ classdef EntropyCoeffEstimator < handle
             xlabel("Time [H]"); ylabel("Temperature [degC]")
 
             subplot(3,1,2)
-            semilogx(obj.refSig.excFreq_Hz*1000,abs(UrefExc),'o r',refFreqVec*1000,abs(UrefHarm),'* b'); hold on;
+            semilogx(freqExc_mHz,abs(UrefExc),'o r',refFreqVec_mHz,abs(UrefHarm),'* b'); hold on;
             xlabel('Freq (mHz)'); ylabel({' Temperature FFT'; 'magnitude [-]'}); title(" Reference temperature spectrum")
             legend('Excited frequencies','All frequencies')
             if ~isempty(suppHarms)
-                semilogx(suppFreq_Hz*1000,abs(UrefSupp),'o g'); hold on;
+                semilogx(suppFreq_mHz,abs(UrefSupp),'o g'); hold on;
                 legend('Excited frequencies','All frequencies', 'Suppressed frequencies')
             end
             subplot(3,1,3)
-            semilogx(obj.refSig.excFreq_Hz*1000,abs(UmeasExc),'o r',refFreqVec*1000,abs(UmeasHarm),'* b'); hold on;
+            semilogx(freqExc_mHz,abs(UmeasExc),'o r',refFreqVec_mHz,abs(UmeasHarm),'* b'); hold on;
             xlabel('Freq (mHz)'); ylabel({' Temperature FFT'; 'magnitude [-]'}); title("Measured temperature spectrum")
             legend('Excited frequencies','All frequencies')
             if ~isempty(suppHarms)
-                semilogx(suppFreq_Hz*1000,abs(UmeasSupp),'o g'); hold on;
+                semilogx(suppFreq_mHz,abs(UmeasSupp),'o g'); hold on;
                 legend('Excited frequencies','All frequencies', 'Suppressed frequencies')
             end
 
@@ -410,30 +415,29 @@ classdef EntropyCoeffEstimator < handle
             stairs(hours(obj.processedData.ocvPeriod_V.Time),obj.processedData.ocvPeriod_V.OCV_Period,'. -');
             xlabel("Time [H]"); ylabel("OCV [V]")
             subplot(2,1,2)
-            semilogx(obj.refSig.excFreq_Hz*1000,abs(OmeasExc),'o r',refFreqVec*1000,abs(OMeasHarm),'* b'); hold on;
+            semilogx(freqExc_mHz,abs(OmeasExc),'o r',refFreqVec_mHz,abs(OMeasHarm),'* b'); hold on;
             xlabel('Freq (mHz)'); ylabel({' Temperature FFT'; 'magnitude [-]'}); title("Measured OCV spectrum")
             legend('Excited frequencies','All frequencies')
             if ~isempty(suppHarms)
-                semilogx(suppFreq_Hz*1000,abs(OmeasSupp),'o g'); hold on;
+                semilogx(suppFreq_mHz,abs(OmeasSupp),'o g'); hold on;
                 legend('Excited frequencies','All frequencies', 'Suppressed frequencies')
             end
         end
 
         function PlotKernel(obj)
 
-            freqExc = obj.refSig.excFreq_Hz*1000;
+            freqExc_mHz = obj.refSig.excFreq_Hz*1000;
 
             figure
-            db = @(x)20*log10(abs(x));
             phG = @(G) unwrap(angle(G))*180/pi;     % Function for transfer function phase
             ax(1) = subplot(3,1,1);
-            semilogx(freqExc,db(obj.results.kernel),'. -')
+            semilogx(freqExc_mHz,db(obj.results.kernel),'. -')
             xlabel('Excited frequencies [mHz]'); ylabel('Magnitude [dB]'); legend('Kernel')
             ax(2) = subplot(3,1,2);
-            semilogx(freqExc,phG(obj.results.kernel),'. -')
+            semilogx(freqExc_mHz,phG(obj.results.kernel),'. -')
             xlabel('Excited frequencies [mHz]'); ylabel('Phase [deg]')
             ax(3) = subplot(3,1,3);
-            semilogx(freqExc,db(obj.results.varKernel)/2,'. -')
+            semilogx(freqExc_mHz,db(obj.results.varKernel)/2,'. -')
             xlabel('Excited frequencies [mHz]'); ylabel('Kernel std [dB]'); legend('Kernel std')
             linkaxes(ax,'x')
         end
@@ -441,12 +445,11 @@ classdef EntropyCoeffEstimator < handle
         function PlotKernelFit(obj)
 
             freqIdx_estimation = obj.estimationSettings.freqIdx_estimation;
-            freqExc = obj.refSig.excFreq_Hz(freqIdx_estimation)*1000;
+            freqExc_mHz = obj.refSig.excFreq_Hz(freqIdx_estimation)*1000;
             model_respone = obj.results.optimumFRF(freqIdx_estimation);
             kernel_response = obj.results.kernel(freqIdx_estimation);
 
             figure
-            db = @(x)20*log10(abs(x));
             phG = @(G) unwrap(angle(G))*180/pi;     % Function for transfer function phase
 
             kernel_phase = phG(kernel_response);
@@ -461,10 +464,10 @@ classdef EntropyCoeffEstimator < handle
             
             titleStr = sprintf("Model Order: num %d denom %d.  Model fit: %.1f%%",obj.estimationSettings.modelOrder_num,obj.estimationSettings.modelOrder_denom,obj.results.fitMetrics.FitPercent);
             ax(1) = subplot(2,1,1);
-            semilogx(freqExc,db(kernel_response),'. -',freqExc,db(model_respone), '-')
+            semilogx(freqExc_mHz,db(kernel_response),'. -',freqExc_mHz,db(model_respone), '-')
             xlabel('Excited frequencies [mHz]'); ylabel('Magnitude [dB]'); legend('Kernel','TF fit'); title(titleStr)
             ax(2) = subplot(2,1,2);
-            semilogx(freqExc,kernel_phase,'. -',freqExc,TF_phase,'-')
+            semilogx(freqExc_mHz,kernel_phase,'. -',freqExc_mHz,TF_phase,'-')
             xlabel('Excited frequencies [mHz]'); ylabel('Phase [deg]')
             linkaxes(ax,'x')
 
@@ -638,31 +641,21 @@ classdef EntropyCoeffEstimator < handle
             end
 
             totalNumSamples =  numPeriods*obj.refSig.Nref;
-            % idxRng = numSigSamples - totalNumSamples +1 : numSigSamples;
             idxRng = 1:totalNumSamples;
 
             % Get integer number of periods
             timeVecTmp = obj.measData.tempData.Time_s(idxRng);
 
-            % If more that one period is available then discard first
-            % period and average remaining periods
-            try obj.estimationSettings.usePeriods;
-                if isempty(obj.estimationSettings.usePeriods)
-                    if numPeriods > 1
-                        pAveIdx = 2:numPeriods;
-                    else
-                        pAveIdx = 1;
-                    end
-                else
-                    pAveIdx = obj.estimationSettings.usePeriods;
-
-                end
-            catch
+            % If more that one period is available and userPeriods is null
+            % then discard first period and average remaining periods
+            if isempty(obj.estimationSettings.usePeriods)
                 if numPeriods > 1
                     pAveIdx = 2:numPeriods;
                 else
                     pAveIdx = 1;
                 end
+            else
+                pAveIdx = obj.estimationSettings.usePeriods;
             end
 
             % Get integer number of periods and reshape to Nref x P
@@ -744,7 +737,7 @@ classdef EntropyCoeffEstimator < handle
             end
 
 
-            obj.processedData.Caloric = timetable(obj.measData.tempData.Time_s,MeanTemp.Caloric,'VariableNames',"Caloric");
+            obj.processedData.Caloric = timetable(obj.measData.tempData.Time_s, MeanTemp.Caloric, 'VariableNames',"Caloric");
         end
 
 

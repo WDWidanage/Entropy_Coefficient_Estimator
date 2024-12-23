@@ -29,6 +29,7 @@ savefig(gcf,fullfile(pwd,'LGM50_Reversible_Heat.fig'))
 
 
 %% Figure 2: Time signal and frequency domain
+close all
 
 % Generate a reference signal from 0degC to 50degC with 1 period and save 
 obj = EntropyCoeffEstimator("Tmin_degC",10,"Tmax_degC",50,"numLevels",5,"startTemp",30,"fMax_Hz",1.2E-3,"Ts_s",2,"Periods",1,"fileName","refSig_1050_60per.csv");
@@ -59,11 +60,10 @@ savefig(gcf,fullfile(pwd,'Reference_Signal.fig'))
 
 
 figure()
-semilogx(obj.refSig.excFreq_Hz*1000,abs(UrefExc),'o r',refFreqVec*1000,abs(UrefHarm),'* b'); hold on;
+semilogx(refFreqVec*1000,abs(UrefHarm),'* b'); hold on
+semilogx(obj.refSig.excFreq_Hz*1000,abs(UrefExc),'o','MarkerFaceColor','red');
+semilogx(suppFreq_Hz*1000,abs(UrefSupp),'o','MarkerFaceColor','green'); grid on;
 xlabel('Frequency [mHz]'); ylabel({'FFT magnitude of';'temperature signal [-]'})
-if ~isempty(suppHarms)
-    semilogx(suppFreq_Hz*1000,abs(UrefSupp),'o g'); grid on, hold on; 
-end
 savefig(gcf,fullfile(pwd,'Reference_Signal_FFT.fig'))
 
 
@@ -168,10 +168,11 @@ kerObj(idx).PlotProcessedSig;
 figure(1)
 p = gcf().Children(2).Children; % FFT of measured mean temperature
 figure
-plot(p(1).XData,p(1).YData,'o')
-semilogx(p(3).XData,p(3).YData,'o r',p(2).XData,p(2).YData,'* b',p(1).XData,p(1).YData,'o g'); grid on;
+semilogx(p(2).XData,p(2).YData,'* b'); hold on;
+semilogx(p(3).XData,p(3).YData,'o','MarkerFaceColor','red'); 
+semilogx(p(1).XData,p(1).YData,'o','MarkerFaceColor','green'); grid on;
 xlabel('Freq (mHz)'); ylabel({' Temperature FFT'; 'magnitude [-]'}); 
-legend('Excited frequencies','All frequencies', 'Suppressed frequencies')
+legend('All frequencies','Excited frequencies','Suppressed frequencies')
 savefig(gcf,fullfile(pwd,'Measured_Temperature_FFT.fig'))
 
 
@@ -179,15 +180,15 @@ savefig(gcf,fullfile(pwd,'Measured_Temperature_FFT.fig'))
 figure(2)
 p = gcf().Children(2).Children; % FFT of measured mean temperature
 figure
-plot(p(1).XData,p(1).YData,'o')
-semilogx(p(3).XData,p(3).YData,'o r',p(2).XData,p(2).YData,'* b',p(1).XData,p(1).YData,'o g'); grid on;
-xlabel('Freq (mHz)'); ylabel({' Temperature FFT'; 'magnitude [-]'}); 
-legend('Excited frequencies','All frequencies', 'Suppressed frequencies')
+semilogx(p(2).XData,p(2).YData,'* b'); hold on;
+semilogx(p(3).XData,p(3).YData,'o','MarkerFaceColor','red')
+semilogx(p(1).XData,p(1).YData,'o','MarkerFaceColor','green'); grid on;
+xlabel('Freq (mHz)'); ylabel({' OCV FFT'; 'magnitude [-]'}); 
+legend('All frequencies', 'Excited frequencies','Suppressed frequencies')
 savefig(gcf,fullfile(pwd,'Measured_OCV_FFT.fig'))
 
 
 %% Figure 5: FRF and TF Fit
-
 close all
 soc_select = 80;
 idx = find(soc_select == z);
@@ -225,8 +226,8 @@ savefig(gcf,fullfile(pwd,'Kernel_Fit_Phase.fig'))
 
 
 %% Figure 6: Potentiometric based method
-
 close all
+dataPth = what('Measurement_Data/measurements_Aug2023').path;
 potTextFilesInfo = dir(fullfile(dataPth,"*Potentiometric.txt"));
 hdrNames = ["time", "TEC1", "TEC2", "BoxTop", "TabAnode", "SurfaceBottomAnode", "SurfaceTopAnode", "SurfaceBottomCathode", "SurfaceTopCathode", "TabCathode", "SurfaceTopCenter", "SurfaceBottomCenter", "CoolingBlockTop", "Ambient", "U"];
 z = (0:5:100)'; % SoC break points
@@ -249,11 +250,11 @@ for zz = 1:numel(z)
     ocv = potData.U;
 
     % Index set
-    idx50 = find(temp > 49.5 & temp < 50.5, 1, 'last');
-    idx40 = find(temp > 39.3 & temp < 40.3, 1,'last');
-    idx30 = find(temp > 29.01 & temp < 30.01, 1,'last');
-    idx20 = find(temp > 19.01 & temp < 20.01, 1,'last');
-    idx10 = find(temp > 9.05 & temp < 10.5, 1,'last');
+    idx50 = find(temp > 49.5 & temp < 50.5, 1, 'last') - 1;
+    idx40 = find(temp > 39.3 & temp < 40.3, 1,'last') - 1;
+    idx30 = find(temp > 29.01 & temp < 30.01, 1,'last') - 1;
+    idx20 = find(temp > 19.01 & temp < 20.01, 1,'last') - 1;
+    idx10 = find(temp > 9.05 & temp < 10.5, 1,'last') - 1;
 
     idxSS = [idx50,idx40,idx30,idx20,idx10];
 
@@ -276,17 +277,27 @@ for zz = 1:numel(z)
     if (z(zz) == plot_soc)
         figure
         subplot(2,1,1);
-        plot(hours(time),potData.U); grid on;
-        xlabel("Time [H]"); ylabel("OCV [V]"); title(['SoC: ' num2str(z(zz)) '%'])
+        plot(time(idx50)/3600,potData.U(idx50),'x',...
+         time(idx40)/3600,potData.U(idx40),'x',...
+         time(idx30)/3600,potData.U(idx30),'x',...
+         time(idx20)/3600,potData.U(idx20),'x',...
+         time(idx10)/3600,potData.U(idx10),'x', ...
+         time/3600,potData.U); grid on;
+        xlabel("Time [H]"); ylabel("OCV [V]"); title(['SoC: ' num2str(z(zz)) '$\%$'],Interpreter="latex")
 
         subplot(2,1,2);
-        plot(hours(time),temp,'. -'); grid on;
-        xlabel("Time [H]"); ylabel("Temperature [degC]")
+        plot(time(idx50)/3600,temp(idx50),'x',...
+         time(idx40)/3600,temp(idx40),'x',...
+         time(idx30)/3600,temp(idx30),'x',...
+         time(idx20)/3600,temp(idx20),'x',...
+         time(idx10)/3600,temp(idx10),'x', ...
+         time/3600,temp); grid on;
+        xlabel("Time [H]"); ylabel({"Temperature","[degC]"})
         savefig(gcf,fullfile(pwd,sprintf('Potentiometric_Signal_%d.fig',z(zz))))
 
         figure
         plot(ssTemp,ssOCV,'x',ssTemp,dUdTFit,'-'); grid on;
-        xlabel("Temperature steady-state [degC]"); ylabel("OCV steadystate [V]"); title(['SoC: ' num2str(z(zz)) '%'])
+        xlabel("Temperature steady-state [degC]"); ylabel("OCV steady-state [V]"); title(['SoC: ' num2str(z(zz)) '$\%$'],Interpreter="latex")
         savefig(gcf,fullfile(pwd,sprintf('Potentiometric_Fit_%d.fig',z(zz))))
 
     end
@@ -306,7 +317,7 @@ errorbar(z_sort,dUdTP(idx_sort),dUdTP_std(idx_sort),[],[],[],LineStyle="- ."); g
 xlabel("SoC [%]"); ylabel("dUdT [mV/K]")
 legend(["Kernel based","Potentiometirc"],"Location","best")
 
-savefig(fullfile(pwd,'Kernal_Potentiometric_dUdT.fig'))
+savefig(fullfile(pwd,'Kernel_Potentiometric_dUdT.fig'))
 
 %% Helper functions
 % Function to calculate mean temperature 
