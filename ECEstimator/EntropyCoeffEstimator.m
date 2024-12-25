@@ -690,52 +690,8 @@ classdef EntropyCoeffEstimator < handle
         end
 
         function obj = CaloricCellTemperature(obj)
-
-
-            % % IMPROVE: Write a generic function to select which channels to average
-            try
-                MeanTemp.TECRef = (obj.measData.tempData.TECRefOben + obj.measData.tempData.TECRefUnten)/2;
-                MeanTemp.Caloric = (obj.measData.tempData.LIBMitteOben + obj.measData.tempData.LIBPlusOben + obj.measData.tempData.LIBMinusOben...
-                                    + obj.measData.tempData.LIBMitteUnten + obj.measData.tempData.LIBMinusUnten)/5; %für erste Zeile kann wegen t=0 keine kalorische Mitteltemperatur berechnet werden
-                setTemp = obj.measData.tempData.SollTemp;
-            catch
-                MeanTemp.TECRef = (obj.measData.tempData.TEC1 + obj.measData.tempData.TEC2)/2;
-                MeanTemp.Caloric = (obj.measData.tempData.SurfaceTopCenter + obj.measData.tempData.SurfaceTopCathode + obj.measData.tempData.SurfaceTopAnode...
-                                    + obj.measData.tempData.SurfaceBottomCenter + obj.measData.tempData.SurfaceBottomAnode)/5; %für erste Zeile kann wegen t=0 keine kalorische Mitteltemperatur berechnet werden
-                numPeriods = floor(length(MeanTemp.TECRef)/obj.refSig.Nref) + 1;
-                tmpSetTemp = repmat(obj.refSig.refTempSig,numPeriods,1);
-                setTemp = tmpSetTemp(1:length(MeanTemp.TECRef));
-            end
-            
-            alphaCuCell = obj.cellThermalProperties.copperConductivity_wpmk/obj.cellThermalProperties.copperThickness_m; %Approximation heat conductivity Cu-plate to Cell, W/(m^2*K)
-            KeyFigures.Nu2Infinity = (pi^2)/2;
-            KeyFigures.Bi = (alphaCuCell * obj.cellThermalProperties.cellThickness_m)/ obj.cellThermalProperties.cellConductivity_wpmk; %Biot-Number
-            KeyFigures.NuiInfinity = (4+obj.cellThermalProperties.GeoFactor + KeyFigures.Bi)/(1+(KeyFigures.Bi/KeyFigures.Nu2Infinity));
-
-            Cell = size(MeanTemp.TECRef,1);
-            t = 2;
-            Caloric(1,1) = 0;
-            for ii = 2:Cell
-                if isequal(setTemp(ii), setTemp(ii-1))
-                    % Caloric interior temperature
-                    KeyFigures.Fo(ii) = (obj.cellThermalProperties.cellConductivity_wpmk*t)/(obj.cellThermalProperties.cellThickness_m^2 * obj.cellThermalProperties.cellDenisty_kgpm3 * obj.cellThermalProperties.cellSpecificHeatCapacity_Jp);
-                    KeyFigures.Nui0(ii) = (sqrt(pi)+ 10*KeyFigures.Bi*sqrt(KeyFigures.Fo(ii)))/(1+5*KeyFigures.Bi*sqrt(pi*KeyFigures.Fo(ii)))*1/sqrt(KeyFigures.Fo(ii));
-                    KeyFigures.Nui(ii) = sqrt((KeyFigures.NuiInfinity^2)-(0.4^2)+(KeyFigures.Nui0(ii) + 0.4)^2);
-                    KeyFigures.NTUi(ii) = (obj.cellThermalProperties.GeoFactor * KeyFigures.Fo(ii))/((1/KeyFigures.Bi) + (1/KeyFigures.Nui(ii)));
-                    Caloric(ii,1) = (MeanTemp.TECRef(ii) + (MeanTemp.Caloric(ii-(t/2))-MeanTemp.TECRef(ii))*exp(-KeyFigures.NTUi(ii)));
-                    t = t+2;
-                else
-                    t = 2;
-                    % Caloric interior temperature
-                    KeyFigures.Fo(ii) = (obj.cellThermalProperties.cellConductivity_wpmk*t)/(obj.cellThermalProperties.cellThickness_m^2 * obj.cellThermalProperties.cellDenisty_kgpm3 * obj.cellThermalProperties.cellSpecificHeatCapacity_Jp);
-                    KeyFigures.Nui0(ii) = ((sqrt(pi)+ 10*KeyFigures.Bi*sqrt(KeyFigures.Fo(ii)))/(1+5*KeyFigures.Bi*sqrt(pi*KeyFigures.Fo(ii))))*(1./sqrt(KeyFigures.Fo(ii)));
-                    KeyFigures.Nui(ii) = sqrt(KeyFigures.NuiInfinity^2-0.4^2.+(KeyFigures.Nui0(ii) + 0.4)^2);
-                    KeyFigures.NTUi(ii) = (obj.cellThermalProperties.GeoFactor * KeyFigures.Fo(ii))/((1/KeyFigures.Bi) + (1/KeyFigures.Nui(ii)));
-                    Caloric(ii,1) =(MeanTemp.TECRef(ii) + (MeanTemp.Caloric(ii-1) - MeanTemp.TECRef(ii))*exp(-KeyFigures.NTUi(ii)));
-                end
-
-            end
-
+                MeanTemp.Caloric = (obj.measData.tempData.SurfaceTopAnode + obj.measData.tempData.SurfaceTopCenter + obj.measData.tempData.SurfaceTopCathode +...
+                                    obj.measData.tempData.SurfaceBottomAnode + obj.measData.tempData.SurfaceBottomCenter + obj.measData.tempData.SurfaceBottomCathode)/6;
 
             obj.processedData.Caloric = timetable(obj.measData.tempData.Time_s, MeanTemp.Caloric, 'VariableNames',"Caloric");
         end
