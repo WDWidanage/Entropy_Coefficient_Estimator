@@ -14,7 +14,7 @@ This Matlab repository contains the code and data used as presented in the paper
 Download or clone the Github repo and add it to your Matlab path.
 
 ### Generating reference temperautre profiles and obtaining the entropy coefficient 
-1. To use the "EntropyCoeffEstimator.m" class see the notebooks in the Example_Notebooks folder
+1. To use the `EntropyCoeffEstimator.m` class see the notebooks in the Example_Notebooks folder
 
 ### Paper figure creation
 To create the figures as presented in the paper, run the following Matlab script.
