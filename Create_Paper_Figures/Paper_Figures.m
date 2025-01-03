@@ -18,17 +18,17 @@ temp = 'T25';
 
 figure()
 plot(LGM50_5Ah_RateTest.(temp).(['cRate_',cRate]).timeVec/3600,LGM50_5Ah_RateTest.(temp).(['cRate_',cRate]).currVec,'. -')
-xlabel("Time [H]"); ylabel("Applied current [A]"); grid on;
+xlabel("Time [h]"); ylabel("Applied current [A]"); grid on;
 savefig(gcf,fullfile(pwd,'LGM50_Reversible_Heat_Current.fig'))
 
 
 figure()
 plot(LGM50_5Ah_RateTest.(temp).(['cRate_',cRate]).timeVec/3600,LGM50_5Ah_RateTest.(temp).(['cRate_',cRate]).cellTemp_mid,'. -')
-xlabel("Time [H]"); ylabel({"Cell surface", "temperature [degC]"}); grid on;
+xlabel("Time [h]"); ylabel({"Cell surface", "temperature [degC]"}); grid on;
 savefig(gcf,fullfile(pwd,'LGM50_Reversible_Heat.fig'))
 
 
-%% Figure 2: Time signal and frequency domain
+%% Figure 4: Time signal and frequency domain
 close all
 
 % Generate a reference signal from 0degC to 50degC with 1 period and save 
@@ -55,7 +55,7 @@ UrefSupp = UTmp(suppHarms+1);
 
 figure()
 stairs(obj.refSig.refTimeVec_s/3600,obj.refSig.refTempSig,'. -'); grid on;
-xlabel('Time [H]'); ylabel({'Reference temperature';'signal [deg$^\circ$C]'})
+xlabel('Time [h]'); ylabel({'Reference temperature';'signal [deg$^\circ$C]'})
 savefig(gcf,fullfile(pwd,'Reference_Signal.fig'))
 
 
@@ -137,7 +137,7 @@ end
 kernel_results_table = table(z,GoF,RMSE,full_rank,model_order,dUdTK,dUdTK_std);
 head(kernel_results_table)
 
-%% Figure 3: Reference signal, processed temperature and OCV
+%% Figure 5: Reference signal, processed temperature and OCV
 
 close all
 soc_select = 80;
@@ -151,15 +151,15 @@ meas_ocv_signal = kerObj(idx).processedData.ocvPeriod_V.OCV_Period;
 figure();
 stairs(ref_time/3600,ref_temperature_signal); hold on
 stairs(ref_time/3600,meas_mean_temp_signal,'. -')
-xlabel("Time [H]"); ylabel("Temperature [degC]"); grid on;
+xlabel("Time [h]"); ylabel("Temperature [degC]"); grid on;
 savefig(gcf,fullfile(pwd,'Reference_Processed_Temperature.fig'))
 
 figure
 plot(ref_time/3600,meas_ocv_signal,'. -');
-xlabel("Time [H]"); ylabel("OCV [V]"); grid on;
+xlabel("Time [h]"); ylabel("OCV [V]"); grid on;
 savefig(gcf,fullfile(pwd,'Measured_OCV.fig'))
 
-%% Figure 4: Temperature and OCV frequency content
+%% Figure 6: Temperature and OCV frequency content
 close all
 soc_select = 80;
 idx = find(soc_select == z);
@@ -172,7 +172,7 @@ figure
 semilogx(p(2).XData,p(2).YData,'* b'); hold on;
 semilogx(p(3).XData,p(3).YData,'o','MarkerFaceColor','red'); 
 semilogx(p(1).XData,p(1).YData,'o','MarkerFaceColor','green'); grid on;
-xlabel('Freq (mHz)'); ylabel({' Temperature FFT'; 'magnitude [-]'}); 
+xlabel('Freq [mHz]'); ylabel({' Temperature FFT'; 'magnitude [-]'}); 
 legend('All frequencies','Excited frequencies','Suppressed frequencies')
 savefig(gcf,fullfile(pwd,'Measured_Temperature_FFT.fig'))
 
@@ -184,12 +184,12 @@ figure
 semilogx(p(2).XData,p(2).YData,'* b'); hold on;
 semilogx(p(3).XData,p(3).YData,'o','MarkerFaceColor','red')
 semilogx(p(1).XData,p(1).YData,'o','MarkerFaceColor','green'); grid on;
-xlabel('Freq (mHz)'); ylabel({' OCV FFT'; 'magnitude [-]'}); 
+xlabel('Freq [mHz]'); ylabel({' OCV FFT'; 'magnitude [-]'}); 
 legend('All frequencies', 'Excited frequencies','Suppressed frequencies')
 savefig(gcf,fullfile(pwd,'Measured_OCV_FFT.fig'))
 
 
-%% Figure 5: FRF and TF Fit
+%% Figure 7: FRF and TF Fit
 close all
 soc_select = 80;
 idx = find(soc_select == z);
@@ -226,7 +226,7 @@ xlabel("Frequency [mHz]"); ylabel("Phase [rad]"); legend(["$\angle \hat{G}(\omeg
 savefig(gcf,fullfile(pwd,'Kernel_Fit_Phase.fig'))
 
 
-%% Figure 6: Potentiometric based method
+%% Figure 9: Potentiometric based method
 close all
 dataPth = what('Measurement_Data/measurements_Aug2023').path;
 potTextFilesInfo = dir(fullfile(dataPth,"*Potentiometric.txt"));
@@ -284,7 +284,7 @@ for zz = 1:numel(z)
          hours(time(idx20)),potData.U(idx20),'x',...
          hours(time(idx10)),potData.U(idx10),'x', ...
          hours(time),potData.U); grid on;
-        xlabel("Time [H]"); ylabel("OCV [V]"); title(['SoC: ' num2str(z(zz)) '$\%$'],Interpreter="latex")
+        xlabel("Time [h]"); ylabel("OCV [V]"); title(['SoC: ' num2str(z(zz)) '$\%$'],Interpreter="latex")
 
         subplot(2,1,2);
         plot(hours(time(idx50)),temp(idx50),'x',...
@@ -293,7 +293,7 @@ for zz = 1:numel(z)
          hours(time(idx20)),temp(idx20),'x',...
          hours(time(idx10)),temp(idx10),'x', ...
          hours(time),temp); grid on;
-        xlabel("Time [H]"); ylabel({"Temperature","[degC]"})
+        xlabel("Time [h]"); ylabel({"Temperature","[degC]"})
         savefig(gcf,fullfile(pwd,sprintf('Potentiometric_Signal_%d.fig',z(zz))))
 
         figure
@@ -307,7 +307,7 @@ end
 pot_results_table = table(z,GoF,RMSE,potDuration,dUdTP,dUdTP_std);
 head(pot_results_table)
 
-%% Figure 7: Plot dUdT for Kernel and potentiometric method
+%% Figure 10: Plot dUdT for Kernel and potentiometric method
 
 close all
 figure
@@ -319,6 +319,49 @@ xlabel("SoC [%]"); ylabel("dUdT [mV/K]")
 legend(["Kernel based","Potentiometirc"],"Location","best")
 
 savefig(fullfile(pwd,'Kernel_Potentiometric_dUdT.fig'))
+
+%% Heat generation
+close all
+charging_current = 3;
+discharging_current = -3;
+T = 273;
+Q_rev_charging = charging_current*T*dUdTP*1E-3;       % [W] 
+Q_rev_discharging = discharging_current*T*dUdTP*1E-3; % [W]
+
+figure
+plot(z,[Q_rev_charging,Q_rev_discharging]); grid on
+xlabel("SoC [%]"); ylabel("Reversible heat [W]"); legend("Charging", "Discharing")
+
+
+%% Solve 1D energy balance equation 
+
+close all
+ref_time = seconds(kerObj(1).processedData.CaloricPeriod_degC.Time);
+ref_temperature_signal = kerObj(1).processedData.CaloricPeriod_degC.Caloric_Period;
+ref_temperature_fcn = @(t)interp1(ref_time,ref_temperature_signal,t);
+
+kappa = kerObj(1).cellThermalProperties.cellConductivity_wpmk;    % [W/m/K]
+rho = kerObj(1).cellThermalProperties.cellDenisty_kgpm3;          % [kg/m^3]
+cp = kerObj(1).cellThermalProperties.cellSpecificHeatCapacity_Jp; % [J/kg/K]
+L = kerObj(1).cellThermalProperties.cellThickness_m;
+x = linspace(0,L,25);
+t = linspace(0,ref_time(end),1000);
+
+D = kappa/(rho*cp);      % Thermal diffusion [m^2/s]
+time_constant = L^2/D    % Time constant [s]
+
+theta = [kappa, rho, cp];
+heatEqn = @(x,t,u,dudx) heatEquation(x,t,u,dudx,theta);
+heatBC = @(xl,ul,xr,ur,t) heatbc(xl,ul,xr,ur,t,ref_temperature_fcn);
+sol = pdepe(0,heatEqn,@heatic,heatBC,x,t);
+
+ref_Time = kerObj(1).refSig.refTimeVec_s;
+reference_temperature = kerObj(1).refSig.refTempSig;
+top_temperature = sol(:,1);
+mid_temperature = sol(:,13);
+
+plot(ref_Time,reference_temperature,t,[top_temperature,mid_temperature]); grid on;
+xlabel("Time [s]"); ylabel("Temperature [degC]"); legend("Reference", "Cell surface", "Cell mid")
 
 %% Helper functions
 % Function to calculate mean temperature 
@@ -334,4 +377,25 @@ SSE = sum((model - meas).^2);
 SST = sum(abs(meas-mean(meas)).^2);
 RMSE = sqrt(SSE);
 GoF = (1 - SSE/SST)*100;
+end
+
+% 1D Heat equations functions
+function [c,f,s] = heatEquation(x,t,u,dudx,theta)
+k = theta(1);    % [W/m/K]
+p = theta(2);    % [kg/m^3]
+cp = theta(3);   % [J/kg/K]
+c = p*cp;
+f = k*dudx;
+s = 0;
+end
+
+function u0 = heatic(x)
+u0 = 30;
+end
+
+function [pl,ql,pr,qr] = heatbc(xl,ul,xr,ur,t,fcn)
+pl = ul - fcn(t); 
+ql = 0; 
+pr = ur - fcn(t);
+qr = 0; 
 end

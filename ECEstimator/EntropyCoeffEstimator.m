@@ -690,8 +690,8 @@ classdef EntropyCoeffEstimator < handle
         end
 
         function obj = CaloricCellTemperature(obj)
-                MeanTemp.Caloric = (obj.measData.tempData.SurfaceTopAnode + obj.measData.tempData.SurfaceTopCenter + obj.measData.tempData.SurfaceTopCathode +...
-                                    obj.measData.tempData.SurfaceBottomAnode + obj.measData.tempData.SurfaceBottomCenter + obj.measData.tempData.SurfaceBottomCathode)/6;
+            MeanTemp.Caloric = (obj.measData.tempData.SurfaceTopAnode + obj.measData.tempData.SurfaceTopCenter + obj.measData.tempData.SurfaceTopCathode +...
+                obj.measData.tempData.SurfaceBottomAnode + obj.measData.tempData.SurfaceBottomCenter + obj.measData.tempData.SurfaceBottomCathode)/6;
 
             obj.processedData.Caloric = timetable(obj.measData.tempData.Time_s, MeanTemp.Caloric, 'VariableNames',"Caloric");
         end
@@ -776,7 +776,7 @@ classdef EntropyCoeffEstimator < handle
             % Initial TF estimation using Levi method
 
             wNorm = angFreq_rads*Ts;
-            leviTF = LeviAlgorithm(obj,kernel,wNorm,optOrder(2),optOrder(1),"fs",1/Ts);       % Transfer function fi using Levi method
+            leviTF = LeviAlgorithm(obj,kernel,wNorm,optOrder(2),optOrder(1),"fs",1/Ts);       % Initial transfer function fit using Levi (linear) method
             theta0 = [leviTF.B;leviTF.A];
 
             fcnTF = @(theta,angFreq_rads)freqs(theta(1:optOrder(2)+1),[theta(optOrder(2)+2:end);1],angFreq_rads);
@@ -802,7 +802,7 @@ classdef EntropyCoeffEstimator < handle
             %
             % Local polynomial method function to estimate a frequency response
             % function
-            % Madotory inputs:
+            % Mandatory inputs:
             %   X - FFT of input signal size lf x 1
             %   Y - FFT of output signal size lf x 1
             %   F - FFT lines size lf x 1
@@ -818,10 +818,6 @@ classdef EntropyCoeffEstimator < handle
             %   Cg - FRF variance, size lf x 1
             %   Ct - Transient variance, size lf x 1
             %   alpha - polynomial variables size lf x 2*poly_order
-            %
-            % Copyright (C) W. D. Widanage -  WMG, University of Warwick, U.K. 28/06/11-20/10/2021 (~)
-            % All Rights Reserved
-            % Software may be used freely for non-comercial purposes only
 
             arguments
                 obj
@@ -905,10 +901,10 @@ classdef EntropyCoeffEstimator < handle
                     end
                 end
 
-                %Call numerically stable linear least squares function
+                % Call numerically stable linear least squares function
                 [Theta,lls_results] = LLs(obj,Kn,Yslice);
 
-                %Extract FRF's and their variances
+                % Extract FRF's and their variances
                 G(kk,1) = Theta(1);                     % LTI branch dynamics
                 Cg(kk,1) = lls_results.paraVar(1);          % Variance of G
                 Cv(kk,1) = lls_results.noiseVar;            % Noise variance
@@ -1107,10 +1103,10 @@ classdef EntropyCoeffEstimator < handle
             iterUpdate = iterUpdate - 1; % Reduce iteration count by one when loop is exited
 
             % Estimate parameter covariance matrix
-            if all(nvp.s)                    % If measurement variance is not used in the cost function eistamte from residue for paramter variance scaling
+            if all(nvp.s)                    % If measurement variance is not used in the cost function estimate from residue for parameter variance scaling
                 sCF = cF/(nData-nPara);
             else
-                sCF = 1;                     % Else if measurement variance is used in the cost function, paramter variance estimate does not need scaling
+                sCF = 1;                     % Else if measurement variance is used in the cost function, parameter variance estimate does not need scaling
             end
             covTheta = CovTheta(obj,sCF,J);      % Parameter variance
 
