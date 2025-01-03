@@ -29,7 +29,8 @@ To create the figures as presented in the paper, run the following Matlab script
 - Contains kernel-based and potentiometric based data from 100% to 0% performed every 10% SoC
 
 ## License
-
+BSD 3-Clause License
 
 ## Citation
+TBC
 
