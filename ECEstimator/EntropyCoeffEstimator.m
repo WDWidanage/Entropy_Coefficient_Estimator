@@ -33,7 +33,7 @@ classdef EntropyCoeffEstimator < handle
                 nvp.Tmax_degC(1,1) double {mustBeNumeric} = 50;         % Specify maximum temperature [degC]
                 nvp.Tp_H(1,1) double {mustBePositive} = 4;              % Specify signal period [H]
                 nvp.timeStep_mins(1,1) double {mustBePositive} = 5;     % Each temperature step will at least be held for timeStep minutes before switching [mins]
-                nvp.Ts_s(1,1) double {mustBeNumeric} = 1;               % Sampling rate of data acquisiton [s]
+                nvp.Ts_s(1,1) double {mustBeNumeric} = 1;               % Sampling rate of data acquisition [s]
                 nvp.Hsupp double = 2;                                   % Suppressed harmonics
                 nvp.numLevels = 5;                                      % Specify the number of temperature levels
                 nvp.startTemp = 20;                                     % Specify the starting temperature [degC]

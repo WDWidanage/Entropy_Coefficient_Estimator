@@ -10,21 +10,24 @@ close all
 import ECEstimator.*
 
 %% Figure 1: Reversible heat plot
+close all
 
 load LGM50_RateTests.mat
 
 cRate = '0p1C';
 temp = 'T25';
-
+idx_range = 880:length(LGM50_5Ah_RateTest.T25.cRate_0p1C.timeVec);
+time_range = LGM50_5Ah_RateTest.(temp).(['cRate_',cRate]).timeVec(idx_range)/3600;
+time_range_reset = time_range - time_range(1);
 figure()
-plot(LGM50_5Ah_RateTest.(temp).(['cRate_',cRate]).timeVec/3600,LGM50_5Ah_RateTest.(temp).(['cRate_',cRate]).currVec,'. -')
+plot(time_range_reset,LGM50_5Ah_RateTest.(temp).(['cRate_',cRate]).currVec(idx_range),'. -')
 xlabel("Time [h]"); ylabel("Applied current [A]"); grid on;
 savefig(gcf,fullfile(pwd,'LGM50_Reversible_Heat_Current.fig'))
 
 
 figure()
-plot(LGM50_5Ah_RateTest.(temp).(['cRate_',cRate]).timeVec/3600,LGM50_5Ah_RateTest.(temp).(['cRate_',cRate]).cellTemp_mid,'. -')
-xlabel("Time [h]"); ylabel({"Cell surface", "temperature [degC]"}); grid on;
+plot(time_range_reset,LGM50_5Ah_RateTest.(temp).(['cRate_',cRate]).cellTemp_mid(idx_range),'. -')
+xlabel("Time [h]"); ylabel({"Cell surface", "temperature [$^\circ$C]"}); grid on;
 savefig(gcf,fullfile(pwd,'LGM50_Reversible_Heat.fig'))
 
 
