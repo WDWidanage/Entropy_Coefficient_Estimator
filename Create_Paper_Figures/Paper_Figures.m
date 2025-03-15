@@ -281,27 +281,28 @@ for zz = 1:numel(z)
     if (z(zz) == plot_soc)
         figure
         subplot(2,1,1);
-        plot(hours(time(idx50)),potData.U(idx50),'x',...
-         hours(time(idx40)),potData.U(idx40),'x',...
-         hours(time(idx30)),potData.U(idx30),'x',...
-         hours(time(idx20)),potData.U(idx20),'x',...
-         hours(time(idx10)),potData.U(idx10),'x', ...
-         hours(time),potData.U); grid on;
-        xlabel("Time [h]"); ylabel("OCV [V]"); title(['SoC: ' num2str(z(zz)) '$\%$'],Interpreter="latex")
-
-        subplot(2,1,2);
         plot(hours(time(idx50)),temp(idx50),'x',...
          hours(time(idx40)),temp(idx40),'x',...
          hours(time(idx30)),temp(idx30),'x',...
          hours(time(idx20)),temp(idx20),'x',...
          hours(time(idx10)),temp(idx10),'x', ...
          hours(time),temp); grid on;
-        xlabel("Time [h]"); ylabel({"Temperature","[degC]"})
+        xlabel("Time [h]"); ylabel({"Temperature","[$^\circ$C]"})
+        title(['SoC: ' num2str(z(zz)) '$\%$'],Interpreter="latex")
+
+        subplot(2,1,2);
+        plot(hours(time(idx50)),potData.U(idx50),'x',...
+         hours(time(idx40)),potData.U(idx40),'x',...
+         hours(time(idx30)),potData.U(idx30),'x',...
+         hours(time(idx20)),potData.U(idx20),'x',...
+         hours(time(idx10)),potData.U(idx10),'x', ...
+         hours(time),potData.U); grid on;
+        xlabel("Time [h]"); ylabel("OCV [V]");
         savefig(gcf,fullfile(pwd,sprintf('Potentiometric_Signal_%d.fig',z(zz))))
 
         figure
         plot(ssTemp,ssOCV,'x',ssTemp,dUdTFit,'-'); grid on;
-        xlabel("Temperature steady-state [degC]"); ylabel("OCV steady-state [V]"); title(['SoC: ' num2str(z(zz)) '$\%$'],Interpreter="latex")
+        xlabel("Temperature steady-state [$^\circ$C]"); ylabel("OCV steady-state [V]"); title(['SoC: ' num2str(z(zz)) '$\%$'],Interpreter="latex")
         savefig(gcf,fullfile(pwd,sprintf('Potentiometric_Fit_%d.fig',z(zz))))
 
     end
@@ -327,7 +328,7 @@ savefig(fullfile(pwd,'Kernel_Potentiometric_dUdT.fig'))
 close all
 charging_current = 3;
 discharging_current = -3;
-T = 273;
+T = 298;
 Q_rev_charging = charging_current*T*dUdTP*1E-3;       % [W] 
 Q_rev_discharging = discharging_current*T*dUdTP*1E-3; % [W]
 
@@ -362,9 +363,14 @@ ref_Time = kerObj(1).refSig.refTimeVec_s;
 reference_temperature = kerObj(1).refSig.refTempSig;
 top_temperature = sol(:,1);
 mid_temperature = sol(:,13);
+delta_temperature = top_temperature - mid_temperature;
 
-plot(ref_Time,reference_temperature,t,[top_temperature,mid_temperature]); grid on;
-xlabel("Time [s]"); ylabel("Temperature [degC]"); legend("Reference", "Cell surface", "Cell mid")
+plot(ref_Time/3600,reference_temperature,t/3600,[top_temperature,mid_temperature]); grid on;
+xlabel("Time [H]"); ylabel("Temperature [$^\circ$C]"); legend("Reference", "Cell surface", "Cell mid")
+
+figure
+plot(t/3600,delta_temperature); grid on;
+xlabel("Time [H]"); ylabel("Temperature difference [$^\circ$C]");
 
 %% Helper functions
 % Function to calculate mean temperature 
