@@ -100,27 +100,27 @@ end
 
 kernel_results_table = table(z,GoF,RMSE,full_rank,model_order);
 
-%%
+
 % Improve fit for low GoFs
-soc_select = 10;
-idx = find(soc_select == z);
+plot_soc = 10;
+idx = find(plot_soc == z);
 kerObj(idx,1).EstimateEntropyCoeff("usePeriods",1,"transientOnOff","on","modelOrder_num",2,"modelOrder_denom",3,freqIdx_estimation=(1:5));
 
-soc_select = 20;
-idx = find(soc_select == z);
+plot_soc = 20;
+idx = find(plot_soc == z);
 kerObj(idx,1).EstimateEntropyCoeff("usePeriods",1,"transientOnOff","on","modelOrder_num",2,"modelOrder_denom",3,freqIdx_estimation=(1:5));
 
-soc_select = 25;
-idx = find(soc_select == z);
+plot_soc = 25;
+idx = find(plot_soc == z);
 kerObj(idx,1).EstimateEntropyCoeff("usePeriods",1,"transientOnOff","on","modelOrder_num",2,"modelOrder_denom",3,freqIdx_estimation=(1:5));
 kerObj(idx).results.fitMetrics.FitPercent
 
-soc_select = 30;
-idx = find(soc_select == z);
+plot_soc = 30;
+idx = find(plot_soc == z);
 kerObj(idx,1).EstimateEntropyCoeff("usePeriods",1,"transientOnOff","on","modelOrder_num",2,"modelOrder_denom",3,freqIdx_estimation=(1:5));
 
-soc_select = 95;
-idx = find(soc_select == z);
+plot_soc = 95;
+idx = find(plot_soc == z);
 kerObj(idx,1).EstimateEntropyCoeff("usePeriods",1,"transientOnOff","on","modelOrder_num",2,"modelOrder_denom",3,freqIdx_estimation=(1:5));
 
 % Re-collect kernel based dUdT and the standard deviation and fit metrics
@@ -143,8 +143,8 @@ head(kernel_results_table)
 %% Figure 5: Reference signal, processed temperature and OCV
 
 close all
-soc_select = 80;
-idx = find(soc_select == z);
+plot_soc = 80;
+idx = find(plot_soc == z);
 
 ref_time = kerObj(idx).refSig.refTimeVec_s;
 ref_temperature_signal = kerObj(idx).refSig.refTempSig;
@@ -164,8 +164,8 @@ savefig(gcf,fullfile(pwd,'Measured_OCV.fig'))
 
 %% Figure 6: Temperature and OCV frequency content
 close all
-soc_select = 80;
-idx = find(soc_select == z);
+plot_soc = 80;
+idx = find(plot_soc == z);
 kerObj(idx).PlotProcessedSig;
 
 % FFT plot of measured mean temperature 
@@ -194,40 +194,51 @@ savefig(gcf,fullfile(pwd,'Measured_OCV_FFT.fig'))
 
 %% Figure 7: FRF and TF Fit
 close all
-soc_select = 80;
-idx = find(soc_select == z);
+z = (0:5:100); % SoC break points
+plot_soc = 80;
 
-freq_mHz = kerObj(idx).refSig.excFreq_Hz*1000;
-magMeas = 20*log10(abs(kerObj(idx).results.kernel));
-phaseMeas = unwrap(angle(kerObj(idx).results.kernel));
-stdMeas = 10*log10(kerObj(idx).results.varKernel);
-magFit = 20*log10(abs(kerObj(idx).results.optimumFRF));
-phaseFit = unwrap(angle(kerObj(idx).results.optimumFRF));
+for zz = plot_soc
+    idx = find(zz == z);
+    exc_harm = kerObj(idx).estimationSettings.freqIdx_estimation;
 
-figure
-yyaxis left
-plot(freq_mHz,magMeas,'. -'); grid on
-xlabel("Frequency [mHz]"); ylabel("Magnitude [dB]");
-yyaxis right
-plot(freq_mHz,stdMeas,'. -'); grid on
-xlabel("Frequency [mHz]"); ylabel("Magnitude [dB]"); legend(["$|\hat{G}(\omega_k)|$";"$\sigma_{\hat{G}}(\omega_k)$"],Interpreter="latex")
-savefig(gcf,fullfile(pwd,'Kernel_Estimate_Mag.fig'))
+    freq_mHz = kerObj(idx).refSig.excFreq_Hz(exc_harm)*1000;
+    magMeas = 20*log10(abs(kerObj(idx).results.kernel(exc_harm)));
+    phaseMeas = unwrap(angle(kerObj(idx).results.kernel(exc_harm)));
+    stdMeas = 10*log10(kerObj(idx).results.varKernel(exc_harm));
+    magFit = 20*log10(abs(kerObj(idx).results.optimumFRF(exc_harm)));
+    phaseFit = unwrap(angle(kerObj(idx).results.optimumFRF(exc_harm)));
+    if zz == 100
+        phaseFit = phaseFit + 2*pi;
+    end
 
-figure
-plot(freq_mHz,phaseMeas,'. -'); grid on
-xlabel("Frequency [mHz]"); ylabel("Phase [rad]");
-savefig(gcf,fullfile(pwd,'Kernel_Estimate_Phase.fig'))
+    figure
+    yyaxis left
+    plot(freq_mHz,magMeas,'. -'); grid on
+    xlabel("Frequency [mHz]"); ylabel("Magnitude [dB]");
+    yyaxis right
+    plot(freq_mHz,stdMeas,'. -'); grid on
+    xlabel("Frequency [mHz]"); ylabel("Magnitude [dB]"); legend(["$|\hat{G}(\omega_k)|$";"$\sigma_{\hat{G}}(\omega_k)$"],Interpreter="latex")
+    title(['SoC: ' num2str(zz) '$\%$'],Interpreter="latex")
+    savefig(gcf,fullfile(pwd,sprintf('Kernel_Estimate_Mag_%d.fig',zz)))
 
-figure
-plot(freq_mHz,magMeas,'. -',freq_mHz,magFit); grid on
-xlabel("Frequency [mHz]"); ylabel("Magnitude [dB]"); legend(["$|\hat{G}(\omega_k)|$";"$|G(\omega_k,\theta)|$"],Interpreter="latex")
-savefig(gcf,fullfile(pwd,'Kernel_Fit_Mag.fig'))
+    figure
+    plot(freq_mHz,phaseMeas,'. -'); grid on
+    xlabel("Frequency [mHz]"); ylabel("Phase [rad]");
+    title(['SoC: ' num2str(zz) '$\%$'],Interpreter="latex")
+    savefig(gcf,fullfile(pwd,sprintf('Kernel_Estimate_Phase_%d.fig',zz)))
 
-figure
-plot(freq_mHz,phaseMeas,'. -',freq_mHz,phaseFit); grid on
-xlabel("Frequency [mHz]"); ylabel("Phase [rad]"); legend(["$\angle \hat{G}(\omega_k)$";"$\angle G(\omega_k,\theta)$"],Interpreter="latex")
-savefig(gcf,fullfile(pwd,'Kernel_Fit_Phase.fig'))
+    figure
+    plot(freq_mHz,magMeas,'. -',freq_mHz,magFit); grid on
+    xlabel("Frequency [mHz]"); ylabel("Magnitude [dB]"); legend(["$|\hat{G}(\omega_k)|$";"$|G(\omega_k,\theta)|$"],Interpreter="latex")
+    title(['SoC: ' num2str(zz) '$\%$'],Interpreter="latex")
+    savefig(gcf,fullfile(pwd,sprintf('Kernel_Fit_Mag_%d.fig',zz)))
 
+    figure
+    plot(freq_mHz,phaseMeas,'. -',freq_mHz,phaseFit); grid on
+    xlabel("Frequency [mHz]"); ylabel("Phase [rad]"); legend(["$\angle \hat{G}(\omega_k)$";"$\angle G(\omega_k,\theta)$"],Interpreter="latex")
+    title(['SoC: ' num2str(zz) '$\%$'],Interpreter="latex")
+    savefig(gcf,fullfile(pwd,sprintf('Kernel_Fit_Phase_%d.fig',zz)))
+end
 
 %% Figure 9: Potentiometric based method
 close all
@@ -319,6 +330,7 @@ figure
 errorbar(z_sort,dUdTK(idx_sort),dUdTK_std(idx_sort))
 hold on
 errorbar(z_sort,dUdTP(idx_sort),dUdTP_std(idx_sort),[],[],[],LineStyle="- ."); grid on;
+yline(0,'--')
 xlabel("SoC [%]"); ylabel("dUdT [mV/K]")
 legend(["Kernel based","Potentiometirc"],"Location","best")
 
@@ -352,25 +364,29 @@ x = linspace(0,L,25);
 t = linspace(0,ref_time(end),1000);
 
 D = kappa/(rho*cp);      % Thermal diffusion [m^2/s]
-time_constant = L^2/D    % Time constant [s]
+time_constant = L^2/D;   % Time constant [s]
 
 theta = [kappa, rho, cp];
 heatEqn = @(x,t,u,dudx) heatEquation(x,t,u,dudx,theta);
 heatBC = @(xl,ul,xr,ur,t) heatbc(xl,ul,xr,ur,t,ref_temperature_fcn);
 sol = pdepe(0,heatEqn,@heatic,heatBC,x,t);
 
-ref_Time = kerObj(1).refSig.refTimeVec_s;
-reference_temperature = kerObj(1).refSig.refTempSig;
+idx = 1;
+ref_Time = kerObj(idx).refSig.refTimeVec_s;
+reference_temperature = kerObj(idx).refSig.refTempSig;
 top_temperature = sol(:,1);
 mid_temperature = sol(:,13);
 delta_temperature = top_temperature - mid_temperature;
 
 plot(ref_Time/3600,reference_temperature,t/3600,[top_temperature,mid_temperature]); grid on;
 xlabel("Time [H]"); ylabel("Temperature [$^\circ$C]"); legend("Reference", "Cell surface", "Cell mid")
+savefig(fullfile(pwd,'Internal_Temperature.fig'))
 
 figure
 plot(t/3600,delta_temperature); grid on;
 xlabel("Time [H]"); ylabel("Temperature difference [$^\circ$C]");
+savefig(fullfile(pwd,'Internal_TemperatureDiff.fig'))
+
 
 %% Helper functions
 % Function to calculate mean temperature 
@@ -399,7 +415,7 @@ s = 0;
 end
 
 function u0 = heatic(x)
-u0 = 30;
+u0 = 10;
 end
 
 function [pl,ql,pr,qr] = heatbc(xl,ul,xr,ur,t,fcn)
