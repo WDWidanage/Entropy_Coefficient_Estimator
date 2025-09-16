@@ -115,6 +115,7 @@ idx = find(plot_soc == z);
 kerObj(idx,1).EstimateEntropyCoeff("usePeriods",1,"transientOnOff","on","modelOrder_num",2,"modelOrder_denom",3,freqIdx_estimation=(1:5));
 kerObj(idx).results.fitMetrics.FitPercent
 
+
 plot_soc = 30;
 idx = find(plot_soc == z);
 kerObj(idx,1).EstimateEntropyCoeff("usePeriods",1,"transientOnOff","on","modelOrder_num",2,"modelOrder_denom",3,freqIdx_estimation=(1:5));
@@ -217,7 +218,7 @@ for zz = plot_soc
     xlabel("Frequency [mHz]"); ylabel("Magnitude [dB]");
     yyaxis right
     plot(freq_mHz,stdMeas,'. -'); grid on
-    xlabel("Frequency [mHz]"); ylabel("Magnitude [dB]"); legend(["$|\hat{G}(\omega_k)|$";"$\sigma_{\hat{G}}(\omega_k)$"],Interpreter="latex")
+    xlabel("Frequency [mHz]"); ylabel("Standard deviation magnitude [dB]"); legend(["$|\hat{G}(\omega_k)|$";"$\sigma_{\hat{G}}(\omega_k)$"],Interpreter="latex")
     title(['SoC: ' num2str(zz) '$\%$'],Interpreter="latex")
     savefig(gcf,fullfile(pwd,sprintf('Kernel_Estimate_Mag_%d.fig',zz)))
 
@@ -330,9 +331,14 @@ figure
 errorbar(z_sort,dUdTK(idx_sort),dUdTK_std(idx_sort))
 hold on
 errorbar(z_sort,dUdTP(idx_sort),dUdTP_std(idx_sort),[],[],[],LineStyle="- ."); grid on;
-yline(0,'--')
+
+% Error between potentiometric and kernel based method
+error = dUdTK(idx_sort) - dUdTP(idx_sort);
+plot(z_sort,error,'. -')
+
+yline(0,'--') % Mark 0 line
 xlabel("SoC [%]"); ylabel("dUdT [mV/K]")
-legend(["Kernel based","Potentiometirc"],"Location","best")
+legend(["Kernel based","Potentiometirc", "Error"],"Location","best")
 
 savefig(fullfile(pwd,'Kernel_Potentiometric_dUdT.fig'))
 
@@ -388,6 +394,162 @@ xlabel("Time [H]"); ylabel("Temperature difference [$^\circ$C]");
 savefig(fullfile(pwd,'Internal_TemperatureDiff.fig'))
 
 
+%% Potentiometric based method with only first three points
+close all
+dataPth = what('Measurement_Data/measurements_Aug2023').path;
+potTextFilesInfo = dir(fullfile(dataPth,"*Potentiometric.txt"));
+hdrNames = ["time", "TEC1", "TEC2", "BoxTop", "TabAnode", "SurfaceBottomAnode", "SurfaceTopAnode", "SurfaceBottomCathode", "SurfaceTopCathode", "TabCathode", "SurfaceTopCenter", "SurfaceBottomCenter", "CoolingBlockTop", "Ambient", "U"];
+z = (0:5:100)'; % SoC break points
+plot_soc = 80;
+
+for zz = 1:numel(z)
+    filePath = fullfile(dataPth,potTextFilesInfo(zz).name);
+    imOpts = detectImportOptions(filePath);
+    imOpts.VariableNames = hdrNames;
+    potData = readtable(filePath,imOpts);
+    Time_s = seconds(potData.(1) - potData.(1)(1)); % Reset time to 0 seconds
+    potData.Time_s = Time_s;
+    potData = table2timetable(potData,"RowTimes",Time_s);
+    caloricTemp = CaloricCellTemperature(potData);
+    
+    % Signals for potentiometric method
+    time = caloricTemp.Time;
+    temp = caloricTemp.mean_temperature_degC;
+    ocv = potData.U;
+
+    % Index set
+    idx50 = find(temp > 49.5 & temp < 50.5, 1, 'last') - 1;
+    idx40 = find(temp > 39.3 & temp < 40.3, 1,'last') - 1;
+    idx30 = find(temp > 29.01 & temp < 30.01, 1,'last') - 1;
+    idx20 = find(temp > 19.01 & temp < 20.01, 1,'last') - 1;
+    idx10 = find(temp > 9.05 & temp < 10.5, 1,'last') - 1;
+
+    idxSS = [idx50,idx40,idx30];
+    %idxSS = [idx30,idx20,idx10];
+
+    ssTemp = temp(idxSS);
+    ssOCV = ocv(idxSS);
+    potDuration(zz,1) = hours(potData.Time(idxSS(end)));
+
+
+    % Best fit
+    K = [ones(size(ssTemp)),ssTemp];                  % Regressor matrix;
+    [dUdTP_Tmp,dudTP_info] = Lls(K,ssOCV);            % Straight line fit
+    dUdTFit = polyval(flipud(dUdTP_Tmp),ssTemp);      % [V]
+
+    dUdTP_3pts(zz,1) = dUdTP_Tmp(2)*1000;                        % [mV/K]
+    dUdTP_std_3pts(zz,1) = sqrt(dudTP_info.paraVar(2))*1000;     % [mV/K]
+
+    % Error metrics
+    [RMSE_tmp, GoF_tmp] = CalculateErrorMetrics(dUdTFit,ssOCV);
+    RMSE(zz,1) = RMSE_tmp;
+    GoF(zz,1) = GoF_tmp;
+
+    if (z(zz) == plot_soc)
+        figure
+        subplot(2,1,1);
+        plot(hours(time(idx50)),temp(idx50),'x',...
+         hours(time(idx40)),temp(idx40),'x',...
+         hours(time(idx30)),temp(idx30),'x',...
+         hours(time(idx20)),temp(idx20),'x',...
+         hours(time(idx10)),temp(idx10),'x', ...
+         hours(time),temp); grid on;
+        xlabel("Time [h]"); ylabel({"Temperature","[$^\circ$C]"})
+        title(['SoC: ' num2str(z(zz)) '$\%$'],Interpreter="latex")
+
+        subplot(2,1,2);
+        plot(hours(time(idx50)),potData.U(idx50),'x',...
+         hours(time(idx40)),potData.U(idx40),'x',...
+         hours(time(idx30)),potData.U(idx30),'x',...
+         hours(time(idx20)),potData.U(idx20),'x',...
+         hours(time(idx10)),potData.U(idx10),'x', ...
+         hours(time),potData.U); grid on;
+        xlabel("Time [h]"); ylabel("OCV [V]");
+        savefig(gcf,fullfile(pwd,sprintf('Potentiometric_Signal_%d.fig',z(zz))))
+
+        figure
+        plot(ssTemp,ssOCV,'x',ssTemp,dUdTFit,'-'); grid on;
+        xlabel("Temperature steady-state [$^\circ$C]"); ylabel("OCV steady-state [V]"); title(['SoC: ' num2str(z(zz)) '$\%$'],Interpreter="latex")
+        savefig(gcf,fullfile(pwd,sprintf('Potentiometric_Fit_%d.fig',z(zz))))
+
+    end
+end
+
+pot_results_table = table(z,GoF,RMSE,potDuration,dUdTP_3pts,dUdTP_std_3pts);
+head(pot_results_table)
+
+
+close all
+figure
+
+% Kernel based
+errorbar(z_sort,dUdTK(idx_sort),dUdTK_std(idx_sort))
+
+% Five temperature set-point potentiometric
+hold on
+errorbar(z_sort,dUdTP(idx_sort),dUdTP_std(idx_sort),[],[],[],LineStyle="- ."); grid on;
+
+% Three temperature set-point potentiometric
+errorbar(z_sort,dUdTP_3pts(idx_sort),dUdTP_std_3pts(idx_sort),[],[],[],LineStyle="--"); grid on;
+
+
+yline(0,'--') % Mark 0 line
+xlabel("SoC [%]"); ylabel("dUdT [mV/K]")
+legend(["Kernel based","Potentiometirc five set-points"," Potentiometric three set-points"],"Location","best")
+
+
+savefig(fullfile(pwd,'Kernel_Potentiometric_3pts_dUdT.fig'))
+
+%% Two hour and four hour period comparison
+
+clear
+%close all
+
+fldName = '4HourPeriod_b';                  % Options: 2HourPeriod, 4HourPeriod_b
+chnlNum = 8;                                % 8: cell central (top side).
+ioData = loadData(fldName,chnlNum);         % Load the temperature and OCV periodic data
+save(sprintf('measTemp_%s',fldName),'ioData');
+
+% Time plots: Temp and OCV
+figure(1)
+ax1 = subplot(2,1,1);
+stairs(ioData.TimeVec_s/3600,ioData.tempM,'. -'); hold on;
+stairs(ioData.refSig.refTimeVec/3600,ioData.refSig.refTempSig)
+xlabel('Time [H]'); ylabel('Temperature [degC]')
+ax2 = subplot(2,1,2);
+plot(ioData.TimeVec_s/3600,ioData.ocvM,'. -')
+xlabel('Time [H]'); ylabel('OCV [V]')
+linkaxes([ax1,ax2],'x')
+
+% Transient error plots: Temp and OCV
+errTemp = ioData.tempM - ioData.tempM(:,end);
+errOCV = ioData.ocvM - ioData.ocvM(:,end);
+errTmpR = errTemp(:);
+errOCVR = errOCV(:);
+timeErr = [0:length(errTmpR)-1]*2/3600;
+figure(2)
+ax1 = subplot(2,1,1);
+plot(timeErr,errTmpR,'. -'); hold on;
+xlabel('Time [H]'); ylabel('Temperature [degC]')
+ax2 = subplot(2,1,2);
+plot(timeErr,errOCVR,'. -')
+xlabel('Time [H]'); ylabel('OCV [V]')
+linkaxes([ax1,ax2],'x')
+
+% Define inuput and output signals
+aveP = 1; %:ioData.P;
+
+% Estimate TF via Fourier space
+na = 2;
+nb = 1;
+tfInfo = tfEst(ioData,aveP,na,nb);
+
+% Print dUdT estimates
+dUdT_LeviTF = tfInfo.leviTF.num(end)*1000
+dUDT_Levisd = sqrt(tfInfo.leviResults.paraVar(end))*1000
+
+dUdT_TF = tfInfo.optimumTf.num(end)*1000
+dUDT_TFsd = tfInfo.tfResults.stdTheta(nb+1)*1000
 %% Helper functions
 % Function to calculate mean temperature 
 
@@ -424,3 +586,164 @@ ql = 0;
 pr = ur - fcn(t);
 qr = 0; 
 end
+
+%% Function definitions
+
+% Load the text ocv and temperature data
+function [ioData] = loadData(fldName,chnlNum)
+load([fldName,'/refTempSig.mat']);      % Load reference signal
+ioData.refSig = u;
+txtPthDir = dir([fldName,'/*.txt']);
+nFiles = length(txtPthDir);
+cntr_1 = 0;
+cntr_2 = 0;
+for ii = 1:nFiles
+    txtPth = [fldName,'/',txtPthDir(ii).name]; % Text file path
+    if contains(txtPth,'Feld1')
+        cntr_1 = cntr_1 + 1;
+        ocvInfo = textRead(txtPth);
+        ioData.ocvM(:,cntr_1) = ocvInfo.Signals;
+    elseif contains(txtPth,'Feld2')
+        cntr_2 = cntr_2 + 1;
+        tempInfo = textRead(txtPth);
+        ioData.tempM(:,cntr_2) = tempInfo.Signals(:,chnlNum);
+    end
+end
+ioData.TimeVec_s = tempInfo.TimeVec_s;
+ioData.P = nFiles/2;
+ioData.aveTemp = mean(ioData.tempM,2);
+end
+
+% Read a text file
+function [data]= textRead(txtPth)
+fileID = fopen(txtPth);
+dataHdrLine = fgetl(fileID);                % Read header line and go to next line
+hdrs = split(dataHdrLine);
+expD = textscan(fileID,['%f', repmat('%s',1,16)]);
+fclose(fileID);
+
+% Compile time vec and temperautre matrix for convenience
+timeVec_s = expD{:,1} - expD{1,1}(1,1);
+signal  = [];
+for jj = 2:17
+    if ~any(isempty(expD{:,jj}))
+        dataVec = cell2mat(cellfun(@str2num,strrep(expD{:,jj},',','.'),'UniformOutput',false));
+        signal = [signal, dataVec];
+    end
+end
+data.TimeVec_s = timeVec_s;
+data.Signals = signal;
+data.hdrs = hdrs;
+end
+
+% Impulse response estimation
+function impInfo = impEst(ioData, aveP)
+u = mean(ioData.tempM(:,aveP),2);
+y = mean(ioData.ocvM(:,aveP),2);
+
+Ts = 2;                                         % DAQ sampling time [s]
+timeDataObj = iddata(y,u,Ts);
+timeDataObj.InputName = 'Temperature';
+timeDataObj.InputUnit = '[degC]';
+timeDataObj.OutputName = 'OCV';
+timeDataObj.OutputUnit = '[V]';
+timeDataObj_d = detrend(timeDataObj,1);
+opt = impulseestOptions('RegularizationKernel','TC');
+impInfo = impulseest(timeDataObj_d,opt);
+end
+
+% FRF and TF estimation
+function tfInfo = tfEst(ioData, aveP, na, nb)
+Ts = 2;                                         % DAQ sampling time [s]
+Np = ioData.refSig.Ts/Ts*ioData.refSig.Nref;
+uFFT = fft(ioData.tempM([2:Np+1],aveP));
+yFFT = fft(ioData.ocvM([2:Np+1],aveP));
+harmExc = ioData.refSig.harmVec;
+idxExc = harmExc + 1;
+
+uFFT_Exc = uFFT(idxExc,:);
+yFFT_Exc = yFFT(idxExc,:);
+
+meanU = mean(uFFT_Exc,2);
+meanY = mean(yFFT_Exc,2);
+
+[Glpm,~,~,Cg] = LPM(meanU,meanY,idxExc);
+
+freqExc = harmExc'/Np/Ts;
+wExc = 2*pi*freqExc;
+
+% With SysID toolbox
+% freqDataObj = idfrd(Glpm,wExc,0);
+% tfInfo = tfest(freqDataObj,na,nb);
+% figure
+% compare(freqDataObj,tfInfo)
+% tfInfo.Numerator(end)/tfInfo.Denominator(end)
+
+% Parameterise the frequency response.
+% Initial TF estimation using Levi method
+leviOptions.fs = 1/Ts;
+wNorm = wExc*Ts;
+leviTF = LeviAlgorithm(Glpm,wNorm,nb,na,leviOptions);       % Transfer function fi using Levi method
+theta0 = [leviTF.B;leviTF.A];                               % Initia guess for non-linear optimisation
+
+fcnTF = @(theta,freqExc_rads)freqs(theta(1:nb+1),[theta(nb+2:end);1],wExc);
+fcnGReIm = @(theta,freqExc_rads) [real(fcnTF(theta,freqExc_rads));imag(fcnTF(theta,freqExc_rads))];
+
+optionsTF.s = sqrt([Cg; Cg]/2);
+[optimumTf,tfResults] = LMAlgorithm(fcnGReIm, theta0, wExc, [real(Glpm);imag(Glpm)],optionsTF);
+
+Glevi = freqs(theta0(1:nb+1),[theta0(nb+2:end);1],wExc);
+GOpt = freqs(optimumTf(1:nb+1),[optimumTf(nb+2:end);1],wExc);
+
+tfInfo.optimumTf.num = optimumTf(1:nb+1);
+tfInfo.optimumTf.denom = [optimumTf(nb+2:end);1];
+tfInfo.tfResults = tfResults;
+tfInfo.Glpm = Glpm;
+tfInfo.freqExc_Hz = freqExc;
+tfInfo.Cg = Cg;
+tfInfo.leviTF.num = leviTF.B;
+tfInfo.leviTF.denom = [leviTF.A;1];
+tfInfo.leviResults = leviTF.results;
+
+
+% figure()
+idx = 2:Np/4;
+fVec = [idx-1]/Np/Ts;
+fVec_mHz = fVec * 1000;
+freqExc_mHz =freqExc *1000;
+% ax1 = subplot(2,1,1);
+% plot(fVec_mHz,db(uFFT(idx,:)),'. -',freqExc_mHz,db(uFFT(idxExc,:)),'o')
+% xlabel('Frequency [mHz]'); ylabel('FFT Temp [dB]')
+% ax2 = subplot(2,1,2);
+% plot(fVec_mHz,db(yFFT(idx,:)),'. -',freqExc_mHz,db(yFFT(idxExc,:)),'o')
+% xlabel('Frequency [mHz]'); ylabel('FFT OCV [dB]')
+% linkaxes([ax1,ax2],'x')
+
+
+phG = @(G) unwrap(angle(G));                             % Function for transfer function phase
+% figure()
+% ax1 = subplot(2,1,1);
+% semilogx(freqExc_mHz,db(Glpm),'o -',freqExc_mHz,db(Cg),freqExc_mHz,db([Glevi,GOpt]),'. -');
+% xlabel('Frequency [mHz]'); ylabel('Magnitude [dB]')
+% ax2 = subplot(2,1,2);
+% semilogx(freqExc_mHz,phG(Glpm),'o -',freqExc_mHz,phG(Glevi),'. -',freqExc_mHz,phG(GOpt),'. -');
+% xlabel('Frequency [mHz]'); ylabel('Phase [deg]')
+% linkaxes([ax1,ax2],'x')
+
+figure()
+yyaxis left
+semilogx(freqExc_mHz,db(Glpm),'o -'); grid on;
+xlabel('Frequency [mHz]'); ylabel('Magnitude [dB]')
+yyaxis right
+semilogx(freqExc_mHz,db(Cg),'. -');
+xlabel('Frequency [mHz]'); ylabel('Standard deviation magnitude [dB]'); 
+legend(["$|\hat{G}(\omega_k)|$";"$\sigma_{\hat{G}}(\omega_k)$"],Interpreter="latex")
+title('SoC: 50 $\%$',Interpreter="latex")
+
+figure()
+semilogx(freqExc_mHz,phG(Glpm),'o -'); grid on;
+xlabel('Frequency [mHz]'); ylabel('Phase [rad]')
+title('SoC: 50 $\%$',Interpreter="latex")
+end
+
+
